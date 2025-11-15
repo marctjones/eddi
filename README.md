@@ -8,11 +8,11 @@ A secure, self-contained application launcher that exposes web applications only
 
 ## Current Status
 
-🚧 **In Development** - Task 2 Complete
+🚧 **In Development** - Task 3 Complete
 
 - ✅ Task 1: Flask demo app specification
 - ✅ Task 2: Arti "Hello World" proof of concept
-- ⬜ Task 3: UDS and child process management
+- ✅ Task 3: UDS and child process management
 - ⬜ Task 4: Complete Arti-to-UDS bridge
 
 See [GEMINI.md](GEMINI.md) for the full project plan.
@@ -21,6 +21,7 @@ See [GEMINI.md](GEMINI.md) for the full project plan.
 
 - **Project Plan**: [GEMINI.md](GEMINI.md)
 - **Task 2 Documentation**: [TASK2.md](TASK2.md)
+- **Task 3 Documentation**: [TASK3.md](TASK3.md)
 - **GitHub**: https://github.com/marctjones/eddi
 
 ## Building
