@@ -35,6 +35,19 @@ cargo build --release
 
 **Note**: Requires network access to connect to the Tor network.
 
+### Check Tor Connectivity
+
+Before running eddi, verify your system can connect to Tor:
+
+```bash
+cargo run --bin tor-check
+```
+
+This diagnostic tool will:
+- Test DNS resolution
+- Attempt to bootstrap to the Tor network
+- Provide troubleshooting guidance if connection fails
+
 ### Setup
 
 1. Install Python dependencies for the demo Flask app:

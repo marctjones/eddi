@@ -386,6 +386,26 @@ curl http://localhost:9090/metrics
 
 ## Troubleshooting
 
+### Diagnostic Tool
+
+**First step: Run the connectivity checker**
+
+```bash
+# Check if Tor is accessible
+cargo run --bin tor-check
+
+# Or if installed:
+/usr/local/bin/tor-check
+```
+
+This will diagnose:
+- DNS resolution
+- Network connectivity
+- Tor bootstrap capability
+- Environment configuration
+
+The tool provides specific error messages and troubleshooting steps.
+
 ### Common Issues
 
 #### Issue: "Failed to bootstrap Tor client"
@@ -394,6 +414,10 @@ curl http://localhost:9090/metrics
 
 **Solution**:
 ```bash
+# Run diagnostic tool
+cargo run --bin tor-check
+
+# Manual checks:
 # Check network connectivity
 ping 8.8.8.8
 
