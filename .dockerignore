@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+TASK*.md
+docs/
+
+# Build artifacts
+target/
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# Arti source (reference only)
+arti-source/
+
+# CI/CD
+.github/
+
+# Deployment examples
+deployment/
