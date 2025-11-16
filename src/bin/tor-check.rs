@@ -13,6 +13,8 @@ use tracing_subscriber;
 
 use arti_client::{TorClient, TorClientConfig};
 use tor_rtcompat::PreferredRuntime;
+use tor_hsservice::config::OnionServiceConfigBuilder;
+use safelog::DisplayRedacted;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
 
 /// Check 1: Bootstrap connection to Tor network
@@ -283,7 +285,7 @@ async fn check_hidden_service_access(tor_client: &TorClient<PreferredRuntime>) -
 }
 
 /// Check 4: Publish ephemeral Tor hidden service
-async fn check_hidden_service_publish(_tor_client: &TorClient<PreferredRuntime>) -> Result<()> {
+async fn check_hidden_service_publish(tor_client: &TorClient<PreferredRuntime>) -> Result<()> {
     info!("╔═══════════════════════════════════════════════════════════╗");
     info!("║ CHECK 4: Publish Ephemeral Tor Hidden Service            ║");
     info!("╚═══════════════════════════════════════════════════════════╝");
@@ -295,22 +297,79 @@ async fn check_hidden_service_publish(_tor_client: &TorClient<PreferredRuntime>)
     info!("");
     info!("Status: Creating ephemeral hidden service...");
 
-    // Check if the tor_client has the necessary APIs
-    // Note: Arti's hidden service support may be limited or experimental
+    let start = std::time::Instant::now();
 
-    info!("");
-    warn!("⚠️  CHECK 4 SKIPPED: Arti hidden service publishing is experimental");
-    info!("");
-    info!("Note: The current version of Arti has limited hidden service");
-    info!("      publishing support. The main eddi application uses");
-    info!("      hidden service functionality through Arti's APIs.");
-    info!("");
-    info!("Alternative validation:");
-    info!("  → Run 'eddi' to test actual hidden service publishing");
-    info!("  → The eddi service will create a real .onion address");
-    info!("");
+    // Create an ephemeral onion service configuration
+    let svc_config = OnionServiceConfigBuilder::default()
+        .nickname("tor-check-test".parse()?)
+        .build()?;
 
-    Ok(())
+    // Launch the onion service
+    match tor_client.launch_onion_service(svc_config) {
+        Ok((onion_service, _request_stream)) => {
+            info!("  → Onion service launched successfully");
+
+            // Wait for the onion address to be available
+            info!("  → Waiting for .onion address registration...");
+
+            let onion_address = tokio::time::timeout(
+                Duration::from_secs(30),
+                async {
+                    loop {
+                        if let Some(addr) = onion_service.onion_address() {
+                            return Ok::<_, anyhow::Error>(addr);
+                        }
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                }
+            ).await;
+
+            match onion_address {
+                Ok(Ok(addr)) => {
+                    let elapsed = start.elapsed();
+                    info!("");
+                    info!("✅ CHECK 4 PASSED: Successfully published hidden service!");
+                    info!("   .onion address: {}", addr.display_unredacted());
+                    info!("   Registration time: {:.2}s", elapsed.as_secs_f64());
+                    info!("");
+                    info!("Note: This is an ephemeral service that will be destroyed");
+                    info!("      when this test completes. The main 'eddi' application");
+                    info!("      creates persistent hidden services.");
+                    info!("");
+
+                    // Drop the service to clean up
+                    drop(onion_service);
+                    Ok(())
+                }
+                Ok(Err(e)) => {
+                    error!("");
+                    error!("❌ CHECK 4 FAILED: Error getting onion address");
+                    error!("   Error: {}", e);
+                    error!("");
+                    anyhow::bail!("Failed to get onion address: {}", e);
+                }
+                Err(_) => {
+                    error!("");
+                    error!("❌ CHECK 4 FAILED: Timeout waiting for onion address");
+                    error!("   The service was launched but address registration timed out");
+                    error!("");
+                    anyhow::bail!("Onion address registration timeout");
+                }
+            }
+        }
+        Err(e) => {
+            error!("");
+            error!("❌ CHECK 4 FAILED: Could not launch onion service");
+            error!("   Error: {}", e);
+            error!("");
+            error!("Possible causes:");
+            error!("  • Tor consensus not fully downloaded");
+            error!("  • Insufficient circuit resources");
+            error!("  • Hidden service directory upload failed");
+            error!("");
+            anyhow::bail!("Failed to launch onion service: {}", e);
+        }
+    }
 }
 
 /// Test if we're in a sandboxed/restricted environment
@@ -377,7 +436,7 @@ async fn main() -> Result<()> {
 
     let mut checks_passed = 0;
     let mut checks_failed = 0;
-    let mut checks_skipped = 0;
+    let checks_skipped = 0;
 
     // Check 1: Bootstrap Tor
     let tor_client = match check_tor_bootstrap().await {
@@ -415,7 +474,7 @@ async fn main() -> Result<()> {
 
     // Check 4: Publish hidden service
     match check_hidden_service_publish(&tor_client).await {
-        Ok(_) => checks_skipped += 1,
+        Ok(_) => checks_passed += 1,
         Err(_e) => {
             checks_failed += 1;
             warn!("Continuing with summary...");
@@ -442,16 +501,30 @@ fn print_summary(passed: u32, failed: u32, skipped: u32) {
     info!("  ⚠️  Skipped: {}", skipped);
     info!("");
 
-    if failed == 0 && passed >= 3 {
+    if failed == 0 && passed >= 4 {
         info!("╔═══════════════════════════════════════════════════════════╗");
-        info!("║          ALL CRITICAL CHECKS PASSED ✅                    ║");
+        info!("║          ALL CHECKS PASSED ✅                             ║");
         info!("╚═══════════════════════════════════════════════════════════╝");
         info!("");
         info!("Your Tor setup is fully functional!");
+        info!("All capabilities verified:");
+        info!("  ✅ Tor network connectivity");
+        info!("  ✅ Browse the internet anonymously over Tor");
+        info!("  ✅ Access .onion hidden services");
+        info!("  ✅ Publish your own .onion hidden services");
+        info!("");
+        info!("You are ready to run 'eddi' to launch persistent hidden services!");
+    } else if failed == 0 && passed >= 3 {
+        info!("╔═══════════════════════════════════════════════════════════╗");
+        info!("║          CRITICAL CHECKS PASSED ✅                        ║");
+        info!("╚═══════════════════════════════════════════════════════════╝");
+        info!("");
+        info!("Your Tor setup is mostly functional.");
         info!("You can now:");
         info!("  • Browse the internet anonymously over Tor");
         info!("  • Access .onion hidden services");
-        info!("  • Run 'eddi' to publish your own hidden service");
+        info!("");
+        info!("Note: Some checks did not pass, but core functionality works.");
     } else if failed > 0 {
         error!("╔═══════════════════════════════════════════════════════════╗");
         error!("║          SOME CHECKS FAILED ❌                            ║");
