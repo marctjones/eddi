@@ -327,9 +327,15 @@ async fn check_hidden_service_publish(tor_client: &TorClient<PreferredRuntime>) 
             match onion_address {
                 Ok(Ok(addr)) => {
                     let elapsed = start.elapsed();
+                    let full_address = format!("{}", addr.display_unredacted());
                     info!("");
                     info!("✅ CHECK 4 PASSED: Successfully published hidden service!");
-                    info!("   .onion address: {}", addr.display_unredacted());
+                    info!("");
+                    info!("   ┌─────────────────────────────────────────────────────────────┐");
+                    info!("   │ .onion address (copy this):                                 │");
+                    info!("   │ {}                                │", full_address);
+                    info!("   └─────────────────────────────────────────────────────────────┘");
+                    info!("");
                     info!("   Registration time: {:.2}s", elapsed.as_secs_f64());
                     info!("");
                     info!("Note: This is an ephemeral service that will be destroyed");
