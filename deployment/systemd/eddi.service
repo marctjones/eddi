@@ -1,0 +1,65 @@
+[Unit]
+Description=eddi - Tor Hidden Service Bridge
+Documentation=https://github.com/marctjones/eddi
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=eddi
+Group=eddi
+WorkingDirectory=/opt/eddi
+
+# Environment
+EnvironmentFile=-/etc/eddi/config.env
+Environment="RUST_LOG=info"
+
+# Process
+ExecStart=/usr/local/bin/eddi
+Restart=always
+RestartSec=10s
+TimeoutStartSec=60s
+TimeoutStopSec=30s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/eddi /var/run/eddi /var/log/eddi
+
+# Capability restrictions
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# System call filtering
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+
+# Additional isolation
+PrivateDevices=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# Resource limits
+LimitNOFILE=4096
+MemoryMax=1G
+TasksMax=256
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=eddi
+
+[Install]
+WantedBy=multi-user.target

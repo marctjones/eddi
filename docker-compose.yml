@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  eddi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eddi
+    restart: unless-stopped
+
+    environment:
+      # Logging level
+      - RUST_LOG=info
+
+      # Customize if needed
+      # - EDDI_WORKERS=2
+      # - EDDI_ONION_NICKNAME=my-service
+
+    volumes:
+      # Persist Arti state (onion service keys)
+      # WARNING: If you lose this, your .onion address changes!
+      - eddi-data:/var/lib/eddi
+
+      # Optional: Mount your own application
+      # - ./my-webapp:/opt/eddi/webapp:ro
+
+      # Optional: Custom configuration
+      # - ./config/config.env:/opt/eddi/.env:ro
+
+    # No ports exposed - only accessible via Tor!
+    # This is the whole point of eddi
+    ports: []
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+
+    # Read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+
+    # Resource limits
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: '2.0'
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -x eddi > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  eddi-data:
+    driver: local
