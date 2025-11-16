@@ -29,3 +29,6 @@ run_output.txt
 
 # Arti source code (cloned for reference only)
 arti-source/
+
+# Test and tool run logs
+logs/
