@@ -28,6 +28,7 @@ use tor_cell::relaycell::msg::Connected;
 use safelog::DisplayRedacted;
 
 use tokio::net::UnixStream;
+use tokio::io::AsyncWriteExt;
 use futures::StreamExt;
 
 use eddi::{ChildProcessManager, ProcessConfig};
@@ -112,6 +113,10 @@ async fn handle_stream_request(
                     error!("Error during stream proxy: {}", e);
                 }
             }
+
+            // Gracefully shutdown both streams
+            let _ = unix_stream.shutdown().await;
+            drop(onion_stream); // Tor stream will send END cell on drop
         }
         IncomingStreamRequest::BeginDir(_) => {
             warn!("Received BeginDir request (unexpected), rejecting");

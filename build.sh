@@ -30,10 +30,8 @@ if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Rust binaries built successfully${NC}"
     echo "  Binaries available in: target/release/"
     echo "  - eddi (main application)"
-    echo "  - task3 (UDS demo)"
     echo "  - tor-check (Tor diagnostics)"
-    echo "  - tor-msg-server (Tor message server)"
-    echo "  - tor-msg-client (Tor message client)"
+    echo "  - tor-http-client (HTTP client over Tor)"
 else
     echo "Error: Rust build failed"
     exit 1
