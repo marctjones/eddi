@@ -1,0 +1,144 @@
+#!/bin/bash
+# EDDI Cleanup Script
+# Kills running eddi processes and cleans up lock files
+
+set -e
+
+echo "🧹 EDDI Cleanup Tool"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Track if we found anything
+FOUND_PROCESSES=0
+FOUND_LOCKS=0
+FOUND_SOCKETS=0
+
+# 1. Find and kill running eddi processes
+echo "🔍 Step 1: Checking for running eddi processes..."
+echo ""
+
+# Find eddi processes (excluding grep and this script)
+EDDI_PIDS=$(pgrep -f "target/(debug|release)/eddi" 2>/dev/null || true)
+
+if [ -n "$EDDI_PIDS" ]; then
+    echo -e "${YELLOW}Found running eddi processes:${NC}"
+    for PID in $EDDI_PIDS; do
+        echo "  PID $PID: $(ps -p $PID -o command= 2>/dev/null || echo 'unknown')"
+    done
+    echo ""
+
+    read -p "Kill these processes? (y/N) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        for PID in $EDDI_PIDS; do
+            echo -e "${BLUE}Killing PID $PID...${NC}"
+            kill -TERM $PID 2>/dev/null || kill -KILL $PID 2>/dev/null || true
+        done
+        sleep 1
+        echo -e "${GREEN}✓ Processes killed${NC}"
+        FOUND_PROCESSES=1
+    else
+        echo "Skipped killing processes"
+    fi
+else
+    echo -e "${GREEN}✓ No running eddi processes found${NC}"
+fi
+echo ""
+
+# 2. Clean up Arti state directory locks
+echo "🔍 Step 2: Checking for Arti lock files..."
+echo ""
+
+ARTI_DIR="$HOME/.local/share/arti"
+
+if [ -d "$ARTI_DIR" ]; then
+    # Find lock files
+    LOCK_FILES=$(find "$ARTI_DIR" -type f -name "*.lock" 2>/dev/null || true)
+    LOCK_DIRS=$(find "$ARTI_DIR" -type d -name "*lock*" 2>/dev/null || true)
+
+    if [ -n "$LOCK_FILES" ] || [ -n "$LOCK_DIRS" ]; then
+        echo -e "${YELLOW}Found lock files/directories:${NC}"
+        [ -n "$LOCK_FILES" ] && echo "$LOCK_FILES"
+        [ -n "$LOCK_DIRS" ] && echo "$LOCK_DIRS"
+        echo ""
+
+        read -p "Remove these locks? (y/N) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            [ -n "$LOCK_FILES" ] && echo "$LOCK_FILES" | xargs rm -f
+            [ -n "$LOCK_DIRS" ] && echo "$LOCK_DIRS" | xargs rm -rf
+            echo -e "${GREEN}✓ Locks removed${NC}"
+            FOUND_LOCKS=1
+        else
+            echo "Skipped removing locks"
+        fi
+    else
+        echo -e "${GREEN}✓ No lock files found${NC}"
+    fi
+
+    # Also check for state.lock files specifically
+    STATE_LOCKS=$(find "$ARTI_DIR" -name "state.lock" 2>/dev/null || true)
+    if [ -n "$STATE_LOCKS" ]; then
+        echo ""
+        echo -e "${YELLOW}Found state.lock files:${NC}"
+        echo "$STATE_LOCKS"
+        echo ""
+
+        read -p "Remove state locks? (y/N) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "$STATE_LOCKS" | xargs rm -f
+            echo -e "${GREEN}✓ State locks removed${NC}"
+            FOUND_LOCKS=1
+        fi
+    fi
+else
+    echo -e "${BLUE}Note: Arti directory doesn't exist yet ($ARTI_DIR)${NC}"
+fi
+echo ""
+
+# 3. Clean up socket files
+echo "🔍 Step 3: Checking for stale socket files..."
+echo ""
+
+SOCKET_FILES=$(find /tmp -name "eddi*.sock" 2>/dev/null || true)
+
+if [ -n "$SOCKET_FILES" ]; then
+    echo -e "${YELLOW}Found socket files:${NC}"
+    echo "$SOCKET_FILES"
+    echo ""
+
+    read -p "Remove these sockets? (y/N) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "$SOCKET_FILES" | xargs rm -f
+        echo -e "${GREEN}✓ Sockets removed${NC}"
+        FOUND_SOCKETS=1
+    else
+        echo "Skipped removing sockets"
+    fi
+else
+    echo -e "${GREEN}✓ No stale socket files found${NC}"
+fi
+echo ""
+
+# 4. Summary
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [ $FOUND_PROCESSES -eq 0 ] && [ $FOUND_LOCKS -eq 0 ] && [ $FOUND_SOCKETS -eq 0 ]; then
+    echo -e "${GREEN}✨ System is clean! No cleanup needed.${NC}"
+else
+    echo -e "${GREEN}✨ Cleanup complete!${NC}"
+fi
+
+echo ""
+echo "You can now run:"
+echo "  ./eddi-server"
+echo ""
