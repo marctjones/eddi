@@ -6,38 +6,141 @@ A secure, self-contained application launcher that exposes web applications only
 
 `eddi` is a Rust-based command-line tool that bridges web applications (Python, PHP, .NET, etc.) to the Tor network without exposing any TCP ports. It uses the Arti Tor library and Unix Domain Sockets to create a secure, isolated environment.
 
-## Current Status
+## Features
 
-✅ **Complete** - All Tasks Finished!
+- ✓ **Pure Tor connectivity** - Uses Arti (Rust Tor implementation), no proxy servers
+- ✓ **No IP exposure** - Never uses IP-based protocols
+- ✓ **Unix Domain Sockets** - Secure inter-process communication
+- ✓ **Process isolation** - Managed child processes
+- ✓ **Zero TCP ports** - No network ports exposed on your system
 
-- ✅ Task 1: Flask demo app specification
-- ✅ Task 2: Arti "Hello World" proof of concept
-- ✅ Task 3: UDS and child process management
-- ✅ Task 4: Complete Arti-to-UDS bridge
+## Quick Start
 
-See [GEMINI.md](GEMINI.md) for the full project plan.
-
-## Quick Links
-
-- **Project Plan**: [GEMINI.md](GEMINI.md)
-- **Task 2 Documentation**: [TASK2.md](TASK2.md)
-- **Task 3 Documentation**: [TASK3.md](TASK3.md)
-- **Task 4 Documentation**: [TASK4.md](TASK4.md) - **Complete implementation!**
-- **GitHub**: https://github.com/marctjones/eddi
-
-## Building
+### 1. Build Everything
 
 ```bash
-cargo build --release
+./build.sh
 ```
 
-## Running
+This will:
+- Build all Rust binaries (eddi, tor-check, tor-http-client, etc.)
+- Set up Python virtual environment
+- Install Flask demo app dependencies
 
-**Note**: Requires network access to connect to the Tor network.
+### 2. Start the Server
 
-### Check Tor Connectivity
+```bash
+./start-server.sh
+```
+
+This will:
+- Bootstrap to Tor network via Arti
+- Launch a Tor v3 onion service
+- Start the Flask web application on Unix Domain Socket
+- Display your .onion address
+
+The server runs the Flask app and proxies connections from Tor. Wait 30-60 seconds for the service to become fully reachable.
+
+### 3. Connect via Tor (Pure Arti Client)
+
+In another terminal:
+
+```bash
+./tor-connect.sh
+```
+
+This client:
+- Uses **only** Arti (no proxy servers)
+- Connects directly via Tor network
+- Never uses IP-based protocols
+- Makes pure onion-to-onion connections
+
+You can also specify an onion address directly:
+
+```bash
+./tor-connect.sh http://your-address.onion:80
+./tor-connect.sh your-address.onion:80/status
+```
+
+## Testing
+
+Run all tests:
+
+```bash
+./scripts/run-tests.sh
+```
+
+This runs:
+- Unit tests
+- Integration tests
+- Network isolation tests
+- Process management tests
+
+Or run tests manually:
+
+```bash
+# Unit tests only
+cargo test
+
+# All tests including network tests
+cargo test -- --ignored
+
+# Specific test suite
+cargo test process_tests
+```
+
+## Project Structure
+
+```
+eddi/
+├── build.sh              # Build all components
+├── start-server.sh       # Start EDDI server
+├── tor-connect.sh        # Connect via pure Tor (Arti)
+├── src/
+│   ├── main.rs          # Main EDDI application
+│   ├── process.rs       # Process management
+│   └── bin/             # Additional binaries
+│       ├── tor-check.rs        # Tor diagnostics
+│       ├── tor-http-client.rs  # Pure Arti HTTP client
+│       ├── tor-msg-server.rs   # Message relay demo
+│       ├── tor-msg-client.rs   # Message client demo
+│       └── task3.rs            # UDS demo
+├── scripts/             # Utility scripts
+│   ├── run-tests.sh            # Test runner
+│   ├── run-tor-check.sh        # Tor connectivity check
+│   ├── launch-server.sh        # Message server launcher
+│   └── connect-client.sh       # Message client launcher
+├── docs/                # Documentation
+│   ├── GEMINI.md               # Project plan
+│   ├── TASK2.md                # Arti POC docs
+│   ├── TASK3.md                # UDS docs
+│   ├── TASK4.md                # Complete implementation
+│   ├── TESTING.md              # Testing guide
+│   ├── DEPLOYMENT.md           # Deployment guide
+│   ├── SECURITY.md             # Security documentation
+│   └── TOR-MESSAGING.md        # Tor messaging docs
+├── test-apps/
+│   └── flask-demo/      # Demo Flask application
+└── tests/               # Test suites
+```
+
+## Documentation
+
+- **Project Plan**: [docs/GEMINI.md](docs/GEMINI.md)
+- **Testing Guide**: [docs/TESTING.md](docs/TESTING.md)
+- **Deployment**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- **Security**: [docs/SECURITY.md](docs/SECURITY.md)
+- **Task Documentation**: [docs/TASK2.md](docs/TASK2.md), [docs/TASK3.md](docs/TASK3.md), [docs/TASK4.md](docs/TASK4.md)
+
+## Tor Connectivity Check
 
 Before running eddi, verify your system can connect to Tor:
+
+```bash
+./scripts/run-tor-check.sh
+```
+
+Or run directly:
 
 ```bash
 cargo run --bin tor-check
@@ -45,37 +148,35 @@ cargo run --bin tor-check
 
 This diagnostic tool will:
 - Test DNS resolution
-- Attempt to bootstrap to the Tor network
-- Provide troubleshooting guidance if connection fails
+- Bootstrap to Tor network
+- Test remote website access via Tor
+- Test onion service connections
+- Provide troubleshooting guidance
 
-### Setup
+## Advanced Usage
 
-1. Install Python dependencies for the demo Flask app:
+### Running Individual Components
+
 ```bash
-cd test-apps/flask-demo
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cd ../..
+# Task 3 demo (UDS and process management)
+cargo run --bin task3
+
+# Tor message relay system
+./scripts/launch-server.sh  # Terminal 1
+./scripts/connect-client.sh # Terminal 2
+
+# Manual HTTP client
+cargo run --release --bin tor-http-client http://example.onion:80
 ```
 
-2. Run eddi:
-```bash
-RUST_LOG=info cargo run --release
-```
-
-3. Access your application via Tor Browser using the `.onion` address displayed
-
-See [TASK4.md](TASK4.md) for complete usage documentation.
-
-## Testing
+### Environment Variables
 
 ```bash
-# Unit tests
-cargo test
+# Enable debug logging
+RUST_LOG=debug ./start-server.sh
 
-# Network isolation tests (requires gunicorn)
-cargo test -- --ignored
+# Enable trace logging
+RUST_LOG=trace cargo run --bin tor-check
 ```
 
 ## License
