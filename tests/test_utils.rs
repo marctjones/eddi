@@ -15,6 +15,7 @@ pub fn temp_dir() -> TempDir {
 }
 
 /// Create a mock Flask application for testing
+#[allow(dead_code)]
 pub fn create_mock_flask_app(dir: &std::path::Path) -> PathBuf {
     let app_path = dir.join("app.py");
     let mut file = fs::File::create(&app_path).expect("Failed to create mock app");
@@ -41,11 +42,13 @@ pub fn command_exists(cmd: &str) -> bool {
 }
 
 /// Check if Python is available
+#[allow(dead_code)]
 pub fn python_available() -> bool {
     command_exists("python3") || command_exists("python")
 }
 
 /// Check if gunicorn is available
+#[allow(dead_code)]
 pub fn gunicorn_available() -> bool {
     command_exists("gunicorn")
 }
@@ -65,6 +68,7 @@ pub fn cleanup_socket(path: &std::path::Path) {
 }
 
 /// Wait for a condition with timeout
+#[allow(dead_code)]
 pub async fn wait_for<F>(mut condition: F, timeout_secs: u64) -> bool
 where
     F: FnMut() -> bool,
@@ -82,6 +86,7 @@ where
 }
 
 /// Mock process configuration for testing
+#[allow(dead_code)]
 pub fn mock_process_config(socket_path: PathBuf) -> eddi::ProcessConfig {
     eddi::ProcessConfig {
         socket_path,

@@ -1,0 +1,53 @@
+#!/bin/bash
+# Simple EDDI Tor Client
+# Usage: ./eddi-connect [onion-address]
+
+set -e
+
+echo "🌐 EDDI Tor Client"
+echo ""
+
+# Build if needed
+if [ ! -f "target/release/tor-http-client" ]; then
+    echo "📦 Building client (first time only)..."
+    cargo build --release --bin tor-http-client --quiet
+    echo "✅ Build complete"
+    echo ""
+fi
+
+# Get onion address
+if [ $# -eq 1 ]; then
+    ADDR="$1"
+elif [ -f ".onion_address" ]; then
+    ADDR=$(cat .onion_address)
+    echo "📍 Using saved address: $ADDR"
+    echo ""
+else
+    echo "❌ No onion address found"
+    echo ""
+    echo "Usage:"
+    echo "  ./eddi-connect <onion-address>"
+    echo ""
+    echo "Example:"
+    echo "  ./eddi-connect http://example.onion:80"
+    echo ""
+    echo "Or start the server first with: ./eddi-server"
+    exit 1
+fi
+
+# Normalize address
+if [[ ! "$ADDR" =~ ^https?:// ]]; then
+    ADDR="http://$ADDR"
+fi
+if [[ ! "$ADDR" =~ :[0-9]+(/|$) ]]; then
+    ADDR=$(echo "$ADDR" | sed 's|\(\.onion\)\(/\|$\)|\1:80\2|')
+fi
+
+echo "🔗 Connecting to: $ADDR"
+echo "⏳ First connection may take 10-30 seconds..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Connect
+exec target/release/tor-http-client "$ADDR"

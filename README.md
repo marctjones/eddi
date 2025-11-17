@@ -1,161 +1,99 @@
 # eddi
 
-A secure, self-contained application launcher that exposes web applications only as Tor hidden services.
+**A secure application launcher that exposes web apps only as Tor hidden services.**
 
-## Overview
+No TCP ports. No IP exposure. Pure Tor connectivity via Arti (Rust Tor implementation).
 
-`eddi` is a Rust-based command-line tool that bridges web applications (Python, PHP, .NET, etc.) to the Tor network without exposing any TCP ports. It uses the Arti Tor library and Unix Domain Sockets to create a secure, isolated environment.
-
-## Features
-
-- ✓ **Pure Tor connectivity** - Uses Arti (Rust Tor implementation), no proxy servers
-- ✓ **No IP exposure** - Never uses IP-based protocols
-- ✓ **Unix Domain Sockets** - Secure inter-process communication
-- ✓ **Process isolation** - Managed child processes
-- ✓ **Zero TCP ports** - No network ports exposed on your system
+---
 
 ## Quick Start
 
-### 1. Build Everything
+### 1. Start the Server
+
+```bash
+./eddi-server
+```
+
+This will:
+- Build binaries (first time only)
+- Bootstrap to Tor network
+- Launch a Tor v3 onion service
+- Start the Flask demo app
+- Display your `.onion` address
+
+**Note:** First start takes 30-60 seconds to bootstrap to Tor.
+
+### 2. Connect via Tor
+
+In another terminal:
+
+```bash
+./eddi-connect
+```
+
+This pure Tor client will:
+- Auto-detect your server's onion address
+- Connect through Tor network (no proxies)
+- Fetch the web page
+
+Or connect to a specific address:
+
+```bash
+./eddi-connect http://example.onion:80
+```
+
+---
+
+## What Makes EDDI Special
+
+- **Pure Tor** - Uses Arti (Rust Tor implementation), not proxy servers
+- **No IP Exposure** - Never uses IP-based protocols
+- **Unix Domain Sockets** - Secure inter-process communication
+- **Zero TCP Ports** - No network ports exposed on your system
+- **Process Isolation** - Managed child processes
+
+---
+
+## Manual Build & Test
+
+### Build Everything
 
 ```bash
 ./build.sh
 ```
 
-This will:
-- Build all Rust binaries (eddi, tor-check, tor-http-client, etc.)
-- Set up Python virtual environment
-- Install Flask demo app dependencies
+Builds:
+- All Rust binaries (eddi, tor-check, tor-http-client, etc.)
+- Python virtual environment
+- Flask demo dependencies
 
-### 2. Start the Server
-
-```bash
-./start-server.sh
-```
-
-This will:
-- Bootstrap to Tor network via Arti
-- Launch a Tor v3 onion service
-- Start the Flask web application on Unix Domain Socket
-- Display your .onion address
-
-The server runs the Flask app and proxies connections from Tor. Wait 30-60 seconds for the service to become fully reachable.
-
-### 3. Connect via Tor (Pure Arti Client)
-
-In another terminal:
-
-```bash
-./tor-connect.sh
-```
-
-This client:
-- Uses **only** Arti (no proxy servers)
-- Connects directly via Tor network
-- Never uses IP-based protocols
-- Makes pure onion-to-onion connections
-
-You can also specify an onion address directly:
-
-```bash
-./tor-connect.sh http://your-address.onion:80
-./tor-connect.sh your-address.onion:80/status
-```
-
-## Testing
-
-Run all tests:
+### Run Tests
 
 ```bash
 ./scripts/run-tests.sh
 ```
 
-This runs:
-- Unit tests
-- Integration tests
-- Network isolation tests
-- Process management tests
+Runs comprehensive test suite with detailed logging.
 
-Or run tests manually:
-
-```bash
-# Unit tests only
-cargo test
-
-# All tests including network tests
-cargo test -- --ignored
-
-# Specific test suite
-cargo test process_tests
-```
-
-## Project Structure
-
-```
-eddi/
-├── build.sh              # Build all components
-├── start-server.sh       # Start EDDI server
-├── tor-connect.sh        # Connect via pure Tor (Arti)
-├── src/
-│   ├── main.rs          # Main EDDI application
-│   ├── process.rs       # Process management
-│   └── bin/             # Additional binaries
-│       ├── tor-check.rs        # Tor diagnostics
-│       ├── tor-http-client.rs  # Pure Arti HTTP client
-│       ├── tor-msg-server.rs   # Message relay demo
-│       ├── tor-msg-client.rs   # Message client demo
-│       └── task3.rs            # UDS demo
-├── scripts/             # Utility scripts
-│   ├── run-tests.sh            # Test runner
-│   ├── run-tor-check.sh        # Tor connectivity check
-│   ├── launch-server.sh        # Message server launcher
-│   └── connect-client.sh       # Message client launcher
-├── docs/                # Documentation
-│   ├── GEMINI.md               # Project plan
-│   ├── TASK2.md                # Arti POC docs
-│   ├── TASK3.md                # UDS docs
-│   ├── TASK4.md                # Complete implementation
-│   ├── TESTING.md              # Testing guide
-│   ├── DEPLOYMENT.md           # Deployment guide
-│   ├── SECURITY.md             # Security documentation
-│   └── TOR-MESSAGING.md        # Tor messaging docs
-├── test-apps/
-│   └── flask-demo/      # Demo Flask application
-└── tests/               # Test suites
-```
-
-## Documentation
-
-- **Project Plan**: [docs/GEMINI.md](docs/GEMINI.md)
-- **Testing Guide**: [docs/TESTING.md](docs/TESTING.md)
-- **Deployment**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-- **Security**: [docs/SECURITY.md](docs/SECURITY.md)
-- **Task Documentation**: [docs/TASK2.md](docs/TASK2.md), [docs/TASK3.md](docs/TASK3.md), [docs/TASK4.md](docs/TASK4.md)
-
-## Tor Connectivity Check
-
-Before running eddi, verify your system can connect to Tor:
+### Check Tor Connectivity
 
 ```bash
 ./scripts/run-tor-check.sh
-```
-
-Or run directly:
-
-```bash
+# or
 cargo run --bin tor-check
 ```
 
-This diagnostic tool will:
-- Test DNS resolution
-- Bootstrap to Tor network
-- Test remote website access via Tor
-- Test onion service connections
-- Provide troubleshooting guidance
+Diagnostic tool that verifies:
+- DNS resolution
+- Tor network bootstrap
+- Hidden service connections
+- Network isolation
+
+---
 
 ## Advanced Usage
 
-### Running Individual Components
+### Individual Components
 
 ```bash
 # Task 3 demo (UDS and process management)
@@ -173,11 +111,94 @@ cargo run --release --bin tor-http-client http://example.onion:80
 
 ```bash
 # Enable debug logging
-RUST_LOG=debug ./start-server.sh
+RUST_LOG=debug ./eddi-server
 
 # Enable trace logging
 RUST_LOG=trace cargo run --bin tor-check
 ```
+
+---
+
+## Project Structure
+
+```
+eddi/
+├── eddi-server          # Simple server launcher
+├── eddi-connect         # Simple Tor client
+├── build.sh             # Build all components
+├── start-server.sh      # Detailed server launcher
+├── tor-connect.sh       # Detailed Tor client
+├── src/
+│   ├── main.rs          # Main EDDI application
+│   ├── process.rs       # Process management
+│   └── bin/             # Additional binaries
+│       ├── tor-check.rs        # Tor diagnostics
+│       ├── tor-http-client.rs  # Pure Arti HTTP client
+│       ├── tor-msg-server.rs   # Message relay demo
+│       └── tor-msg-client.rs   # Message client demo
+├── scripts/             # Utility scripts
+├── docs/                # Documentation
+└── test-apps/           # Demo applications
+    └── flask-demo/      # Flask demo app
+```
+
+---
+
+## Troubleshooting
+
+### DNS Resolution Issues
+
+If you see "failed to resolve" errors:
+
+```bash
+# Check DNS configuration
+cat /etc/resolv.conf
+
+# Add DNS servers if empty
+echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+```
+
+### Tor Bootstrap Timeout
+
+If Tor takes too long to bootstrap:
+
+1. Check network connectivity
+2. Verify DNS is working
+3. Check firewall allows outbound connections
+4. Try with debug logging: `RUST_LOG=debug ./eddi-server`
+
+### Python/Flask Issues
+
+If Flask demo fails:
+
+```bash
+# Rebuild Python environment
+cd test-apps/flask-demo
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+---
+
+## Documentation
+
+- **[TESTING.md](docs/TESTING.md)** - Testing guide
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Deployment guide
+- **[SECURITY.md](docs/SECURITY.md)** - Security documentation
+- **[TOR-MESSAGING.md](docs/TOR-MESSAGING.md)** - Tor messaging system
+- **[GEMINI.md](docs/GEMINI.md)** - Original project plan
+
+---
+
+## Requirements
+
+- **Rust** - Install from [rustup.rs](https://rustup.rs/)
+- **Python 3** - For Flask demo app
+- **Network Access** - To connect to Tor directory authorities
+
+---
 
 ## License
 
