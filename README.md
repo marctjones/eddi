@@ -234,4 +234,4 @@ pip install -r requirements.txt
 
 ## License
 
-MIT OR Apache-2.0
+Not licensed
