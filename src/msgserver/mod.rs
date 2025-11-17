@@ -9,9 +9,13 @@ pub mod storage;
 pub mod client;
 pub mod broker;
 pub mod server;
+pub mod handshake;
+pub mod cli;
 
 pub use message::{Message, MessageQueue};
 pub use storage::{StateManager, ServerConfig, ClientConfig};
 pub use client::{ClientConnection, ClientManager};
 pub use broker::{MessageBroker, BrokerHandle};
 pub use server::{ServerInstance, ServerManager};
+pub use handshake::{BrokerHandshake, ClientHandshake, IntroductionData};
+pub use cli::{MsgSrvCli, MsgSrvCommand};

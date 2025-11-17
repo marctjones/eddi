@@ -1,0 +1,221 @@
+// CLI commands for message server
+
+use clap::{Parser, Subcommand};
+use std::path::PathBuf;
+
+/// Message server CLI commands
+#[derive(Debug, Parser)]
+#[command(name = "msgsrv")]
+#[command(about = "Secure message passing system with Tor hidden services")]
+pub struct MsgSrvCli {
+    #[command(subcommand)]
+    pub command: MsgSrvCommand,
+}
+
+/// Message server subcommands
+#[derive(Debug, Subcommand)]
+pub enum MsgSrvCommand {
+    /// Create a new fortress (persistent message server)
+    CreateFortress {
+        /// Fortress name
+        #[arg(short, long)]
+        name: String,
+
+        /// Message TTL in minutes (default: 5)
+        #[arg(short, long, default_value = "5")]
+        ttl: u64,
+
+        /// Enable Tor hidden service
+        #[arg(long)]
+        onion: bool,
+
+        /// Enable stealth mode (Tor client authorization)
+        #[arg(long)]
+        stealth: bool,
+    },
+
+    /// Create a broker (ephemeral handshake server)
+    CreateBroker {
+        /// Fortress to connect to
+        #[arg(short, long)]
+        fortress: String,
+
+        /// Namespace for broker discovery (e.g., email@example.com)
+        #[arg(short, long)]
+        namespace: String,
+
+        /// Broker timeout in seconds (default: 120)
+        #[arg(short, long, default_value = "120")]
+        timeout: u64,
+
+        /// Enable Tor hidden service
+        #[arg(long)]
+        onion: bool,
+    },
+
+    /// Connect to a fortress via broker
+    Connect {
+        /// Short code for broker discovery (e.g., ABC-XYZ)
+        #[arg(short, long)]
+        code: String,
+
+        /// Namespace (should match broker's namespace)
+        #[arg(short, long)]
+        namespace: String,
+
+        /// Time window for broker search in minutes (default: 5)
+        #[arg(short = 'w', long, default_value = "5")]
+        time_window: i64,
+
+        /// Alias for this connection (optional)
+        #[arg(short, long)]
+        alias: Option<String>,
+    },
+
+    /// Send a message
+    Send {
+        /// Message content
+        message: String,
+
+        /// Server name or alias (default: last connected)
+        #[arg(short, long)]
+        server: Option<String>,
+    },
+
+    /// Receive messages
+    Receive {
+        /// Server name or alias (default: last connected)
+        #[arg(short, long)]
+        server: Option<String>,
+
+        /// Only retrieve once and exit
+        #[arg(long)]
+        once: bool,
+
+        /// Show only messages since timestamp
+        #[arg(long)]
+        since: Option<u64>,
+    },
+
+    /// Listen for messages (continuous mode)
+    Listen {
+        /// Server name or alias (default: last connected)
+        #[arg(short, long)]
+        server: Option<String>,
+
+        /// Run as system daemon
+        #[arg(long)]
+        daemon: bool,
+
+        /// Run in background (detach from terminal)
+        #[arg(long)]
+        background: bool,
+    },
+
+    /// List all fortresses
+    ListFortresses {
+        /// Show detailed information
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// List active brokers
+    ListBrokers,
+
+    /// List clients for a fortress
+    ListClients {
+        /// Fortress name
+        #[arg(short, long)]
+        fortress: String,
+    },
+
+    /// List connections
+    ListConnections {
+        /// Show detailed information
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Show status of servers and connections
+    Status {
+        /// Server name (optional, shows all if not specified)
+        name: Option<String>,
+    },
+
+    /// Stop a fortress
+    StopFortress {
+        /// Fortress name
+        name: String,
+    },
+
+    /// Stop a broker
+    StopBroker {
+        /// Broker ID or fortress name
+        id: String,
+    },
+
+    /// Disconnect from a fortress
+    Disconnect {
+        /// Connection name or alias
+        name: String,
+    },
+
+    /// Revoke client access
+    RevokeClient {
+        /// Fortress name
+        #[arg(short, long)]
+        fortress: String,
+
+        /// Client code or token
+        #[arg(short, long)]
+        code: String,
+    },
+
+    /// Clean up stopped servers and stale connections
+    Cleanup {
+        /// Actually delete (default is dry-run)
+        #[arg(long)]
+        force: bool,
+    },
+}
+
+impl MsgSrvCli {
+    /// Parse from command-line arguments
+    pub fn parse_args() -> Self {
+        Self::parse()
+    }
+
+    /// Get the state directory
+    pub fn state_dir() -> PathBuf {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        PathBuf::from(home).join(".eddi").join("msgservers")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cli_parsing() {
+        // Test create-fortress command
+        let args = vec![
+            "msgsrv",
+            "create-fortress",
+            "--name",
+            "my-server",
+            "--ttl",
+            "10",
+            "--onion",
+        ];
+
+        let cli = MsgSrvCli::try_parse_from(args);
+        assert!(cli.is_ok());
+    }
+
+    #[test]
+    fn test_state_dir() {
+        let dir = MsgSrvCli::state_dir();
+        assert!(dir.ends_with(".eddi/msgservers"));
+    }
+}
