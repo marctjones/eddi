@@ -1,9 +1,21 @@
 #!/bin/bash
 # EDDI Tor Client - Connect to any URL via Tor
 # Supports both Tor hidden services (.onion) and regular websites (via Tor exit)
-# Usage: ./eddi-connect <url>
+# Usage: ./eddi-connect <url> [OPTIONS]
+#
+# Run ./eddi-connect --help to see all available options.
 
 set -e
+
+# Check if help is requested
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    if [ ! -f "target/release/tor-http-client" ]; then
+        echo "📦 Building client to show help..."
+        cargo build --release --bin tor-http-client --quiet
+        echo ""
+    fi
+    exec target/release/tor-http-client --help
+fi
 
 echo "🌐 EDDI Tor Client"
 echo ""
@@ -16,42 +28,68 @@ if [ ! -f "target/release/tor-http-client" ]; then
     echo ""
 fi
 
-# Get URL from command line or saved address
-if [ $# -eq 1 ]; then
-    URL="$1"
-elif [ -f ".onion_address" ]; then
-    URL=$(cat .onion_address)
-    echo "📍 Using saved address: $URL"
-    echo ""
-else
-    echo "❌ No URL provided"
-    echo ""
-    echo "Usage:"
-    echo "  ./eddi-connect <url>"
-    echo ""
-    echo "Examples:"
-    echo "  Tor Hidden Services (.onion):"
-    echo "    ./eddi-connect http://example.onion"
-    echo "    ./eddi-connect example.onion/status"
-    echo "    ./eddi-connect http://example.onion:8080/api"
-    echo ""
-    echo "  Regular Websites (via Tor anonymously):"
-    echo "    ./eddi-connect https://check.torproject.org"
-    echo "    ./eddi-connect http://httpbin.org/ip"
-    echo "    ./eddi-connect https://www.eff.org"
-    echo ""
-    echo "Or start the EDDI server first with: ./eddi-server"
-    exit 1
+# Check if we have arguments
+if [ $# -eq 0 ]; then
+    # No arguments - try saved address
+    if [ -f ".onion_address" ]; then
+        URL=$(cat .onion_address)
+        echo "📍 Using saved address: $URL"
+        echo ""
+        echo "🔗 Connecting to: $URL"
+        echo "⏳ First connection may take 10-30 seconds..."
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        exec target/release/tor-http-client "$URL"
+    else
+        echo "❌ No URL provided"
+        echo ""
+        echo "Usage:"
+        echo "  ./eddi-connect <url> [OPTIONS]"
+        echo ""
+        echo "Examples:"
+        echo "  Tor Hidden Services (.onion):"
+        echo "    ./eddi-connect http://example.onion"
+        echo "    ./eddi-connect example.onion/status"
+        echo "    ./eddi-connect http://example.onion:8080/api"
+        echo ""
+        echo "  Regular Websites (via Tor anonymously):"
+        echo "    ./eddi-connect https://check.torproject.org"
+        echo "    ./eddi-connect http://httpbin.org/ip"
+        echo "    ./eddi-connect https://www.eff.org"
+        echo ""
+        echo "Options:"
+        echo "  -q, --quiet          Quiet mode - only show response"
+        echo "  -v, --verbose        Verbose output"
+        echo "  -H, --headers-only   Show only headers"
+        echo "  -t, --timeout SECS   Connection timeout (default: 30)"
+        echo "  -l, --max-body-size  Max response size in bytes"
+        echo ""
+        echo "Run './eddi-connect --help' for full help"
+        echo "Or start the EDDI server first with: ./eddi-server"
+        exit 1
+    fi
 fi
 
-echo "🔗 Connecting to: $URL"
-echo "⏳ First connection may take 10-30 seconds..."
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
+# Extract URL (first non-option argument)
+URL=""
+for arg in "$@"; do
+    if [[ ! "$arg" =~ ^- ]]; then
+        URL="$arg"
+        break
+    fi
+done
 
-# Connect via Tor
+if [ -n "$URL" ]; then
+    echo "🔗 Connecting to: $URL"
+    echo "⏳ First connection may take 10-30 seconds..."
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+fi
+
+# Connect via Tor - pass all arguments through
 # The tor-http-client handles all URL formats automatically:
 # - .onion addresses: direct connection within Tor network
 # - Regular URLs: anonymized connection via Tor exit nodes
-exec target/release/tor-http-client "$URL"
+exec target/release/tor-http-client "$@"

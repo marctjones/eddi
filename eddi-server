@@ -1,13 +1,78 @@
 #!/bin/bash
-# Simple EDDI Server Launcher
-# Usage: ./eddi-server [--force]
+# EDDI Server Launcher
+# Usage: ./eddi-server [OPTIONS]
 #
-# Options:
-#   --force    Automatically kill existing processes and clean locks
+# Launcher Options:
+#   --force, -f    Automatically kill existing processes and clean locks
+#   --help-launcher Show this help and exit
+#
+# All other options are passed directly to the eddi binary.
+# Run './eddi-server --help' to see eddi binary options.
 
+# Parse launcher-specific arguments
 FORCE=0
-if [ "$1" = "--force" ] || [ "$1" = "-f" ]; then
-    FORCE=1
+SHOW_LAUNCHER_HELP=0
+EDDI_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --force|-f)
+            FORCE=1
+            shift
+            ;;
+        --help-launcher)
+            SHOW_LAUNCHER_HELP=1
+            shift
+            ;;
+        *)
+            # Pass all other arguments to eddi binary
+            EDDI_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [ $SHOW_LAUNCHER_HELP -eq 1 ]; then
+    cat << 'EOF'
+EDDI Server Launcher
+
+This script handles:
+  - Building the eddi binary (if needed)
+  - Setting up Python/Flask demo (if needed)
+  - Cleaning up stale processes and locks
+  - Launching the eddi server
+
+Launcher Options:
+  --force, -f         Automatically kill existing processes and clean locks
+  --help-launcher     Show this help and exit
+
+All other options are passed to the eddi binary.
+
+Common eddi binary options:
+  --socket, -s PATH           Unix socket path (default: /tmp/eddi.sock)
+  --nickname, -n NAME         Onion service nickname (default: eddi-demo)
+  --app-dir, -d PATH          Web application directory
+  --app-module, -m MODULE     WSGI module (default: app:app)
+  --workers, -w NUM           Number of workers (default: 2)
+  --no-spawn                  Don't spawn app (assume it's running)
+  --help                      Show full eddi binary help
+
+Examples:
+  ./eddi-server
+    Start with default settings (spawns Flask demo)
+
+  ./eddi-server --nickname my-blog --socket /tmp/blog.sock
+    Start with custom nickname and socket path
+
+  ./eddi-server --no-spawn --socket /var/run/myapp.sock
+    Connect to existing app on custom socket
+
+  ./eddi-server --force --nickname test --workers 4
+    Force cleanup, custom nickname, 4 workers
+
+For full eddi binary documentation, run: ./eddi-server --help
+EOF
+    exit 0
 fi
 
 echo "🚀 Starting EDDI Server..."
@@ -87,8 +152,22 @@ if [ ! -d "test-apps/flask-demo/venv" ]; then
     echo ""
 fi
 
-# Clean up old socket
-rm -f /tmp/eddi.sock
+# Extract socket path from arguments (if provided)
+SOCKET_PATH="/tmp/eddi.sock"
+for i in "${!EDDI_ARGS[@]}"; do
+    if [ "${EDDI_ARGS[$i]}" = "--socket" ] || [ "${EDDI_ARGS[$i]}" = "-s" ]; then
+        if [ $((i + 1)) -lt ${#EDDI_ARGS[@]} ]; then
+            SOCKET_PATH="${EDDI_ARGS[$((i + 1))]}"
+        fi
+    fi
+done
+
+# Clean up old socket if it exists
+if [ -e "$SOCKET_PATH" ]; then
+    echo "🧹 Removing old socket: $SOCKET_PATH"
+    rm -f "$SOCKET_PATH"
+    echo ""
+fi
 
 echo "🔗 Bootstrapping to Tor network..."
 echo "⏳ This takes 30-60 seconds..."
@@ -96,5 +175,11 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Run server
-exec target/release/eddi
+# Run server with arguments
+if [ ${#EDDI_ARGS[@]} -eq 0 ]; then
+    # No arguments - use default (spawn Flask demo)
+    exec target/release/eddi --app-dir test-apps/flask-demo
+else
+    # Pass through user arguments
+    exec target/release/eddi "${EDDI_ARGS[@]}"
+fi
