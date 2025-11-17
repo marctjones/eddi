@@ -22,8 +22,15 @@ fn parse_onion_url(url: &str) -> Result<(String, u16, String)> {
     // Remove http:// or https:// prefix if present
     let url = url.trim_start_matches("http://").trim_start_matches("https://");
 
-    // Split by ':' to separate address and port
-    let parts: Vec<&str> = url.split(':').collect();
+    // First, extract the path (everything after the first '/')
+    let (addr_and_port, path) = if let Some(slash_pos) = url.find('/') {
+        (url[..slash_pos].to_string(), url[slash_pos..].to_string())
+    } else {
+        (url.to_string(), "/".to_string())
+    };
+
+    // Now split address and port by ':'
+    let parts: Vec<&str> = addr_and_port.split(':').collect();
 
     if parts.is_empty() {
         bail!("Invalid URL format");
@@ -38,19 +45,10 @@ fn parse_onion_url(url: &str) -> Result<(String, u16, String)> {
 
     // Extract port (default to 80)
     let port = if parts.len() > 1 {
-        // Remove any path component
-        let port_part = parts[1].split('/').next().unwrap_or("80");
-        port_part.parse::<u16>()
+        parts[1].parse::<u16>()
             .context("Invalid port number")?
     } else {
         80
-    };
-
-    // Extract path (default to "/")
-    let path = if let Some(slash_pos) = url.find('/') {
-        url[slash_pos..].to_string()
-    } else {
-        "/".to_string()
     };
 
     Ok((address, port, path))
@@ -216,6 +214,18 @@ mod tests {
         assert_eq!(addr, "example.onion");
         assert_eq!(port, 80);
         assert_eq!(path, "/");
+
+        // Test without port but with path
+        let (addr, port, path) = parse_onion_url("example.onion/status").unwrap();
+        assert_eq!(addr, "example.onion");
+        assert_eq!(port, 80);
+        assert_eq!(path, "/status");
+
+        // Test with long path
+        let (addr, port, path) = parse_onion_url("http://example.onion/api/v1/health").unwrap();
+        assert_eq!(addr, "example.onion");
+        assert_eq!(port, 80);
+        assert_eq!(path, "/api/v1/health");
 
         // Test non-onion address (should fail)
         assert!(parse_onion_url("example.com").is_err());
