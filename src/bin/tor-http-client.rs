@@ -13,7 +13,7 @@
 use anyhow::{Context, Result, bail};
 use arti_client::{TorClient, TorClientConfig};
 use tor_rtcompat::PreferredRuntime;
-use std::io::{Read, Write};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{info, error};
 use tracing_subscriber;
 
