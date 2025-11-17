@@ -6,6 +6,22 @@ authors = ["marctjones"]
 description = "A secure, self-contained application launcher that exposes web apps only as Tor hidden services"
 license = "MIT OR Apache-2.0"
 
+[[bin]]
+name = "eddi"
+path = "src/main.rs"
+
+[[bin]]
+name = "eddi-msgsrv"
+path = "src/bin/eddi-msgsrv.rs"
+
+[[bin]]
+name = "tor-check"
+path = "src/bin/tor-check.rs"
+
+[[bin]]
+name = "tor-http-client"
+path = "src/bin/tor-http-client.rs"
+
 [dependencies]
 # Arti - Tor implementation in Rust
 arti-client = { version = "0.36", features = ["onion-service-service", "onion-service-client"] }
