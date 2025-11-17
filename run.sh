@@ -20,7 +20,7 @@ LOG_FILE="logs/eddi-run-${TIMESTAMP}.log"
 LATEST_LOG="logs/eddi-run-latest.log"
 
 echo -e "${BLUE}Building eddi application...${NC}"
-cargo build
+cargo build --bin eddi
 
 echo -e "${BLUE}Running eddi application...${NC}"
 echo "Output will be logged to $LOG_FILE"
@@ -60,7 +60,7 @@ if [ -d "$ARTI_DIR" ]; then
 fi
 
 # Run in background and capture PID
-cargo run 2>&1 | tee "$LOG_FILE" &
+cargo run --bin eddi 2>&1 | tee "$LOG_FILE" &
 EDDI_PID=$!
 
 echo "eddi application started with PID: $EDDI_PID"
