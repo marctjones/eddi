@@ -1,0 +1,44 @@
+#!/bin/bash
+# Simple EDDI Server Launcher
+# Usage: ./eddi-server
+
+set -e
+
+echo "🚀 Starting EDDI Server..."
+echo ""
+
+# Build if needed
+if [ ! -f "target/release/eddi" ]; then
+    echo "📦 Building binaries (first time only)..."
+    cargo build --release --bins --quiet
+    echo "✅ Build complete"
+    echo ""
+fi
+
+# Setup Python if needed
+if [ ! -d "test-apps/flask-demo/venv" ]; then
+    echo "🐍 Setting up Flask demo (first time only)..."
+    cd test-apps/flask-demo
+    python3 -m venv venv >/dev/null 2>&1 || true
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+        pip install -q --upgrade pip 2>/dev/null || true
+        pip install -q -r requirements.txt 2>/dev/null || true
+        deactivate
+    fi
+    cd ../..
+    echo "✅ Flask setup complete"
+    echo ""
+fi
+
+# Clean up old socket
+rm -f /tmp/eddi.sock
+
+echo "🔗 Bootstrapping to Tor network..."
+echo "⏳ This takes 30-60 seconds..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Run server
+exec target/release/eddi
