@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}About - TorPaste{% endblock %}
+
+{% block extra_style %}
+<style>
+    .about-section {
+        margin-bottom: 30px;
+    }
+    .about-section h2 {
+        color: #667eea;
+        margin-bottom: 15px;
+        font-size: 22px;
+    }
+    .about-section p {
+        line-height: 1.8;
+        color: #555;
+        margin-bottom: 10px;
+    }
+    .about-section ul {
+        margin-left: 20px;
+        line-height: 1.8;
+        color: #555;
+    }
+    .about-section code {
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Courier New', monospace;
+        color: #d63384;
+    }
+    .tech-stack {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .tech-item {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 4px solid #667eea;
+    }
+    .tech-item h3 {
+        color: #333;
+        margin-bottom: 5px;
+        font-size: 16px;
+    }
+    .tech-item p {
+        color: #666;
+        font-size: 14px;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about-section">
+    <h2>🧅 About TorPaste</h2>
+    <p>
+        TorPaste is a privacy-focused pastebin service running exclusively on the Tor network.
+        It demonstrates how web applications can be deployed as Tor hidden services using
+        <strong>eddi</strong> - a secure application launcher that exposes web apps ONLY via Tor.
+    </p>
+</div>
+
+<div class="about-section">
+    <h2>✨ Features</h2>
+    <ul>
+        <li><strong>Privacy First:</strong> No IP logging, no tracking, no analytics</li>
+        <li><strong>Tor-Only Access:</strong> Zero TCP ports exposed to the internet</li>
+        <li><strong>No Registration:</strong> Create and share pastes anonymously</li>
+        <li><strong>Simple & Fast:</strong> Pure Python with SQLite database</li>
+        <li><strong>Open Source:</strong> Built with Flask, demonstrating eddi capabilities</li>
+    </ul>
+</div>
+
+<div class="about-section">
+    <h2>🛠️ Technology Stack</h2>
+    <div class="tech-stack">
+        <div class="tech-item">
+            <h3>eddi</h3>
+            <p>Tor-only application launcher using Arti (Rust Tor implementation)</p>
+        </div>
+        <div class="tech-item">
+            <h3>Flask</h3>
+            <p>Lightweight Python web framework</p>
+        </div>
+        <div class="tech-item">
+            <h3>SQLite</h3>
+            <p>Embedded database (no external server needed)</p>
+        </div>
+        <div class="tech-item">
+            <h3>Gunicorn</h3>
+            <p>WSGI server over Unix Domain Socket</p>
+        </div>
+    </div>
+</div>
+
+<div class="about-section">
+    <h2>🔒 How It Works</h2>
+    <p>
+        This application runs entirely over Tor using the following architecture:
+    </p>
+    <ol style="margin-left: 20px; line-height: 1.8; color: #555;">
+        <li><strong>eddi</strong> creates a Tor v3 onion service using Arti (pure Rust Tor)</li>
+        <li>Flask app runs on a <code>Unix Domain Socket</code> (not TCP)</li>
+        <li>eddi proxies Tor connections to the Unix socket</li>
+        <li>All data stays within the Tor network - no clearnet exposure</li>
+    </ol>
+</div>
+
+<div class="about-section">
+    <h2>📝 Use Cases</h2>
+    <ul>
+        <li>Share code snippets anonymously</li>
+        <li>Exchange information securely over Tor</li>
+        <li>Demonstrate Tor hidden service capabilities</li>
+        <li>Test eddi's application hosting features</li>
+    </ul>
+</div>
+
+<div class="about-section">
+    <h2>ℹ️ Note</h2>
+    <p>
+        This is a demonstration application. While it provides privacy through Tor,
+        pastes are stored in a local SQLite database and are not encrypted at rest.
+        For production use, consider adding encryption and other security measures.
+    </p>
+</div>
+{% endblock %}

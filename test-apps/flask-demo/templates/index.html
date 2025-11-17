@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block extra_style %}
+<style>
+    .paste-form {
+        margin-bottom: 30px;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        color: #333;
+    }
+    .form-group input[type="text"],
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 5px;
+        font-family: inherit;
+        font-size: 14px;
+    }
+    .form-group input[type="text"]:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    .form-group textarea {
+        font-family: 'Courier New', monospace;
+        min-height: 300px;
+        resize: vertical;
+    }
+    .btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 5px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+    .recent-pastes {
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 2px solid #f0f0f0;
+    }
+    .recent-pastes h2 {
+        color: #333;
+        margin-bottom: 15px;
+        font-size: 20px;
+    }
+    .paste-list {
+        list-style: none;
+    }
+    .paste-item {
+        padding: 12px 15px;
+        margin-bottom: 8px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #667eea;
+    }
+    .paste-item a {
+        text-decoration: none;
+        color: #333;
+        font-weight: 500;
+    }
+    .paste-item a:hover {
+        color: #667eea;
+    }
+    .paste-item .paste-time {
+        color: #999;
+        font-size: 12px;
+        margin-left: 10px;
+    }
+    .empty-state {
+        text-align: center;
+        color: #999;
+        padding: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="paste-form">
+    <h2>Create a New Paste</h2>
+    <form action="/create" method="POST">
+        <div class="form-group">
+            <label for="title">Title (optional)</label>
+            <input type="text" id="title" name="title" placeholder="Give your paste a title...">
+        </div>
+        <div class="form-group">
+            <label for="language">Language</label>
+            <select id="language" name="language">
+                <option value="text">Plain Text</option>
+                <option value="python">Python</option>
+                <option value="javascript">JavaScript</option>
+                <option value="html">HTML</option>
+                <option value="css">CSS</option>
+                <option value="bash">Bash</option>
+                <option value="json">JSON</option>
+                <option value="markdown">Markdown</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="content">Content *</label>
+            <textarea id="content" name="content" placeholder="Paste your text here..." required></textarea>
+        </div>
+        <button type="submit" class="btn">Create Paste</button>
+    </form>
+</div>
+
+<div class="recent-pastes">
+    <h2>Recent Pastes</h2>
+    {% if recent_pastes %}
+    <ul class="paste-list">
+        {% for paste in recent_pastes %}
+        <li class="paste-item">
+            <a href="/paste/{{ paste.id }}">
+                {{ paste.title if paste.title else 'Untitled' }}
+            </a>
+            <span class="paste-time">{{ paste.created_at }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty-state">
+        <p>No pastes yet. Be the first to create one!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

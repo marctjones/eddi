@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}{{ paste.title if paste.title else 'Untitled' }} - TorPaste{% endblock %}
+
+{% block extra_style %}
+<style>
+    .paste-header {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    .paste-header h2 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    .paste-meta {
+        color: #666;
+        font-size: 14px;
+    }
+    .paste-meta span {
+        margin-right: 20px;
+    }
+    .paste-actions {
+        margin: 15px 0;
+    }
+    .paste-actions a {
+        display: inline-block;
+        padding: 8px 16px;
+        background: #f8f9fa;
+        color: #667eea;
+        text-decoration: none;
+        border-radius: 5px;
+        margin-right: 10px;
+        border: 2px solid #667eea;
+        font-weight: 500;
+    }
+    .paste-actions a:hover {
+        background: #667eea;
+        color: white;
+    }
+    .paste-content {
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 5px;
+        padding: 20px;
+        overflow-x: auto;
+    }
+    .paste-content pre {
+        margin: 0;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    .back-link {
+        margin-top: 20px;
+        display: inline-block;
+    }
+    .back-link a {
+        color: #667eea;
+        text-decoration: none;
+    }
+    .back-link a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="paste-header">
+    <h2>{{ paste.title if paste.title else 'Untitled Paste' }}</h2>
+    <div class="paste-meta">
+        <span><strong>ID:</strong> {{ paste.id }}</span>
+        <span><strong>Language:</strong> {{ paste.language }}</span>
+        <span><strong>Created:</strong> {{ paste.created_at }}</span>
+    </div>
+</div>
+
+<div class="paste-actions">
+    <a href="/raw/{{ paste.id }}" target="_blank">View Raw</a>
+    <a href="/">Create New Paste</a>
+</div>
+
+<div class="paste-content">
+    <pre>{{ paste.content }}</pre>
+</div>
+
+<div class="back-link">
+    <a href="/">← Back to Home</a>
+</div>
+{% endblock %}
