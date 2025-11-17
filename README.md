@@ -63,7 +63,7 @@ Or connect to a specific address:
 ```
 
 Builds:
-- All Rust binaries (eddi, tor-check, tor-http-client, etc.)
+- Rust binaries (eddi, tor-check, tor-http-client)
 - Python virtual environment
 - Flask demo dependencies
 
@@ -93,17 +93,11 @@ Diagnostic tool that verifies:
 
 ## Advanced Usage
 
-### Individual Components
+### Manual HTTP Client
+
+Connect to any Tor hidden service directly:
 
 ```bash
-# Task 3 demo (UDS and process management)
-cargo run --bin task3
-
-# Tor message relay system
-./scripts/launch-server.sh  # Terminal 1
-./scripts/connect-client.sh # Terminal 2
-
-# Manual HTTP client
 cargo run --release --bin tor-http-client http://example.onion:80
 ```
 
@@ -133,10 +127,10 @@ eddi/
 │   ├── process.rs       # Process management
 │   └── bin/             # Additional binaries
 │       ├── tor-check.rs        # Tor diagnostics
-│       ├── tor-http-client.rs  # Pure Arti HTTP client
-│       ├── tor-msg-server.rs   # Message relay demo
-│       └── tor-msg-client.rs   # Message client demo
+│       └── tor-http-client.rs  # Pure Arti HTTP client
 ├── scripts/             # Utility scripts
+│   ├── run-tests.sh            # Test runner
+│   └── run-tor-check.sh        # Tor diagnostics runner
 ├── docs/                # Documentation
 └── test-apps/           # Demo applications
     └── flask-demo/      # Flask demo app
@@ -217,7 +211,6 @@ pip install -r requirements.txt
 - **[TESTING.md](docs/TESTING.md)** - Testing guide
 - **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Deployment guide
 - **[SECURITY.md](docs/SECURITY.md)** - Security documentation
-- **[TOR-MESSAGING.md](docs/TOR-MESSAGING.md)** - Tor messaging system
 - **[GEMINI.md](docs/GEMINI.md)** - Original project plan
 
 ---
