@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
 
     // Connect to the hidden service
     eprintln!("[2/3] Connecting to {}:{}...", hostname, port);
-    let mut stream = tor_client
+    let stream = tor_client
         .connect((hostname, port))
         .await
         .context("Failed to connect to hidden service")?;
