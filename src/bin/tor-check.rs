@@ -89,28 +89,32 @@ async fn check_clearnet_over_tor(tor_client: &TorClient<PreferredRuntime>) -> Re
     info!("  → Target: www.torproject.org:80");
     info!("");
     info!("Status: Connecting to www.torproject.org...");
+    info!("  → Starting connection attempt (timeout: 60s)...");
 
     let start = std::time::Instant::now();
 
     match tokio::time::timeout(
-        Duration::from_secs(30),
+        Duration::from_secs(60),
         tor_client.connect(("www.torproject.org", 80))
     ).await {
         Ok(Ok(mut stream)) => {
             let elapsed = start.elapsed();
+            info!("  → Connection established in {:.2}s", elapsed.as_secs_f64());
 
             // Send a simple HTTP HEAD request
             let request = "HEAD / HTTP/1.0\r\nHost: www.torproject.org\r\n\r\n";
+            info!("  → Sending HTTP HEAD request (timeout: 30s)...");
 
             match tokio::time::timeout(
-                Duration::from_secs(10),
+                Duration::from_secs(30),
                 stream.write_all(request.as_bytes())
             ).await {
                 Ok(Ok(_)) => {
+                    info!("  → Request sent, reading response (timeout: 30s)...");
                     // Try to read response
                     let mut buf = vec![0u8; 1024];
                     match tokio::time::timeout(
-                        Duration::from_secs(10),
+                        Duration::from_secs(30),
                         stream.read(&mut buf)
                     ).await {
                         Ok(Ok(n)) if n > 0 => {
@@ -172,7 +176,7 @@ async fn check_clearnet_over_tor(tor_client: &TorClient<PreferredRuntime>) -> Re
         }
         Err(_) => {
             error!("");
-            error!("❌ CHECK 2 FAILED: Connection timeout (>30 seconds)");
+            error!("❌ CHECK 2 FAILED: Connection timeout (>60 seconds)");
             error!("");
             anyhow::bail!("Clearnet connection timeout");
         }
@@ -194,28 +198,33 @@ async fn check_hidden_service_access(tor_client: &TorClient<PreferredRuntime>) -
 
     // DuckDuckGo's well-known onion address
     let onion_host = "duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion";
+    info!("  → Starting rendezvous circuit (timeout: 120s)...");
+    info!("  → Note: Hidden service connections require additional Tor circuits");
 
     let start = std::time::Instant::now();
 
     match tokio::time::timeout(
-        Duration::from_secs(60),
+        Duration::from_secs(120),
         tor_client.connect((onion_host, 80))
     ).await {
         Ok(Ok(mut stream)) => {
             let elapsed = start.elapsed();
+            info!("  → Rendezvous established in {:.2}s", elapsed.as_secs_f64());
 
             // Send a simple HTTP HEAD request
             let request = format!("HEAD / HTTP/1.0\r\nHost: {}\r\n\r\n", onion_host);
+            info!("  → Sending HTTP HEAD request (timeout: 30s)...");
 
             match tokio::time::timeout(
-                Duration::from_secs(15),
+                Duration::from_secs(30),
                 stream.write_all(request.as_bytes())
             ).await {
                 Ok(Ok(_)) => {
+                    info!("  → Request sent, reading response (timeout: 30s)...");
                     // Try to read response
                     let mut buf = vec![0u8; 1024];
                     match tokio::time::timeout(
-                        Duration::from_secs(15),
+                        Duration::from_secs(30),
                         stream.read(&mut buf)
                     ).await {
                         Ok(Ok(n)) if n > 0 => {
@@ -282,7 +291,7 @@ async fn check_hidden_service_access(tor_client: &TorClient<PreferredRuntime>) -
         }
         Err(_) => {
             error!("");
-            error!("❌ CHECK 3 FAILED: Connection timeout (>60 seconds)");
+            error!("❌ CHECK 3 FAILED: Connection timeout (>120 seconds)");
             error!("   Note: Hidden service connections can be slow");
             error!("");
             anyhow::bail!("Hidden service timeout");
@@ -456,29 +465,33 @@ async fn check_hidden_service_roundtrip(
         format!("{}.onion", onion_address)
     };
 
+    info!("  → Starting rendezvous to own service (timeout: 180s)...");
+    info!("  → Note: This is a newly published service, may take longer");
+
     let start = std::time::Instant::now();
 
     // Connect to the hidden service on port 80 (default)
     match tokio::time::timeout(
-        Duration::from_secs(60),
+        Duration::from_secs(180),
         tor_client.connect((onion_host.as_str(), 80))
     ).await {
         Ok(Ok(mut stream)) => {
-            info!("  → CHECK 5: Connected to hidden service!");
+            let elapsed = start.elapsed();
+            info!("  → CHECK 5: Connected in {:.2}s!", elapsed.as_secs_f64());
             info!("  → CHECK 5: Sending test message: '{}'", TEST_MESSAGE);
 
             // Send the test message
             match tokio::time::timeout(
-                Duration::from_secs(10),
+                Duration::from_secs(30),
                 stream.write_all(TEST_MESSAGE.as_bytes())
             ).await {
                 Ok(Ok(_)) => {
-                    info!("  → CHECK 5: Message sent, waiting for response...");
+                    info!("  → CHECK 5: Message sent, reading response (timeout: 30s)...");
 
                     // Read the response
                     let mut buf = vec![0u8; 1024];
                     match tokio::time::timeout(
-                        Duration::from_secs(10),
+                        Duration::from_secs(30),
                         stream.read(&mut buf)
                     ).await {
                         Ok(Ok(n)) if n > 0 => {
@@ -552,7 +565,7 @@ async fn check_hidden_service_roundtrip(
         }
         Err(_) => {
             error!("");
-            error!("❌ CHECK 5 FAILED: Connection timeout (>60 seconds)");
+            error!("❌ CHECK 5 FAILED: Connection timeout (>180 seconds)");
             error!("   Note: First connection to new hidden service can be slow");
             error!("");
             anyhow::bail!("Connection timeout");
@@ -618,6 +631,12 @@ async fn main() -> Result<()> {
     info!("  3. Access existing Tor hidden services (.onion)");
     info!("  4. Publish Tor hidden services");
     info!("  5. Verify round-trip communication with own hidden service");
+    info!("");
+    info!("Timeout configuration (designed for slow Tor networks):");
+    info!("  • Bootstrap: 60s");
+    info!("  • Clearnet connections: 60s connect, 30s read/write");
+    info!("  • Hidden service access: 120s connect, 30s read/write");
+    info!("  • Own service roundtrip: 180s connect, 30s read/write");
     info!("");
 
     // Check environment first
