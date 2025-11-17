@@ -41,7 +41,7 @@ impl ClientConnection {
 
 /// Manages all connected clients
 pub struct ClientManager {
-    clients: Arc<RwLock<HashMap<String, ClientConnection>>>,
+    pub clients: Arc<RwLock<HashMap<String, ClientConnection>>>,
 }
 
 impl ClientManager {
@@ -132,27 +132,25 @@ impl ClientManager {
     }
 }
 
+impl Default for ClientManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Handle a client connection stream
+/// Returns a receiver for outgoing messages to the client
 pub async fn handle_client_stream(
     stream: UnixStream,
-    client_tx: mpsc::UnboundedSender<ProtocolMessage>,
-    broker_tx: mpsc::UnboundedSender<(String, ProtocolMessage)>,
-    client_id: String,
+    mut outgoing_rx: mpsc::UnboundedReceiver<ProtocolMessage>,
+    incoming_tx: mpsc::UnboundedSender<ProtocolMessage>,
 ) -> Result<()> {
     let (read_half, mut write_half) = stream.into_split();
     let mut reader = BufReader::new(read_half);
 
     // Spawn task to handle outgoing messages
-    let mut client_rx = {
-        let (tx, rx) = mpsc::unbounded_channel();
-        client_tx
-            .send(ProtocolMessage::Ping)
-            .context("Failed to send initial ping")?;
-        rx
-    };
-
     let write_task = tokio::spawn(async move {
-        while let Some(msg) = client_rx.recv().await {
+        while let Some(msg) = outgoing_rx.recv().await {
             if let Ok(bytes) = msg.to_bytes() {
                 if write_half.write_all(&bytes).await.is_err() {
                     break;
@@ -176,17 +174,13 @@ pub async fn handle_client_stream(
 
                 match ProtocolMessage::from_bytes(trimmed.as_bytes()) {
                     Ok(msg) => {
-                        // Send to broker for processing
-                        if broker_tx.send((client_id.clone(), msg)).is_err() {
+                        // Send to incoming channel
+                        if incoming_tx.send(msg).is_err() {
                             break;
                         }
                     }
                     Err(e) => {
                         tracing::warn!("Failed to parse message: {}", e);
-                        let error_msg = ProtocolMessage::Error {
-                            message: format!("Invalid message format: {}", e),
-                        };
-                        let _ = client_tx.send(error_msg);
                     }
                 }
             }

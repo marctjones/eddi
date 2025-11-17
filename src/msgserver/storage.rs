@@ -491,8 +491,8 @@ impl StateManager {
         Ok(())
     }
 
-    /// Get connection by alias or server name
-    pub fn get_connection(&self, name: &str) -> Result<Option<ConnectionConfig>> {
+    /// Get connection configuration by alias or server name
+    pub fn get_connection_config(&self, name: &str) -> Result<Option<ConnectionConfig>> {
         let conn = self.get_connection()?;
 
         let result: Option<ConnectionConfig> = conn
