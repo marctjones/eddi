@@ -36,10 +36,16 @@ This pure Tor client will:
 - Connect through Tor network (no proxies)
 - Fetch the web page
 
-Or connect to a specific address:
+Or connect to any URL via Tor:
 
 ```bash
+# Tor hidden services (.onion)
 ./eddi-connect http://example.onion:80
+./eddi-connect example.onion/status
+
+# Regular websites (via Tor anonymously)
+./eddi-connect https://check.torproject.org
+./eddi-connect http://httpbin.org/ip
 ```
 
 ---
@@ -95,10 +101,14 @@ Diagnostic tool that verifies:
 
 ### Manual HTTP Client
 
-Connect to any Tor hidden service directly:
+Connect to any URL via Tor directly:
 
 ```bash
+# Tor hidden services
 cargo run --release --bin tor-http-client http://example.onion:80
+
+# Regular websites (anonymized via Tor)
+cargo run --release --bin tor-http-client https://check.torproject.org
 ```
 
 ### Environment Variables
@@ -117,23 +127,22 @@ RUST_LOG=trace cargo run --bin tor-check
 
 ```
 eddi/
-├── eddi-server          # Simple server launcher
-├── eddi-connect         # Simple Tor client
-├── build.sh             # Build all components
-├── start-server.sh      # Detailed server launcher
-├── tor-connect.sh       # Detailed Tor client
+├── eddi-server          # Launch Tor hidden service (main command)
+├── eddi-connect         # Connect to any URL via Tor (.onion + clearnet)
+├── eddi-cleanup         # Clean up processes/locks/sockets
+├── build.sh             # Build all binaries + setup environment
 ├── src/
 │   ├── main.rs          # Main EDDI application
 │   ├── process.rs       # Process management
 │   └── bin/             # Additional binaries
-│       ├── tor-check.rs        # Tor diagnostics
+│       ├── tor-check.rs        # Tor diagnostics tool
 │       └── tor-http-client.rs  # Pure Arti HTTP client
-├── scripts/             # Utility scripts
-│   ├── run-tests.sh            # Test runner
-│   └── run-tor-check.sh        # Tor diagnostics runner
+├── scripts/             # Development utilities
+│   ├── run-tests.sh            # Test runner with logging
+│   └── run-tor-check.sh        # Diagnostics runner with logging
 ├── docs/                # Documentation
 └── test-apps/           # Demo applications
-    └── flask-demo/      # Flask demo app
+    └── flask-demo/      # TorPaste - Flask pastebin demo
 ```
 
 ---

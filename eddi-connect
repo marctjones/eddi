@@ -1,6 +1,7 @@
 #!/bin/bash
-# Simple EDDI Tor Client
-# Usage: ./eddi-connect [onion-address]
+# EDDI Tor Client - Connect to any URL via Tor
+# Supports both Tor hidden services (.onion) and regular websites (via Tor exit)
+# Usage: ./eddi-connect <url>
 
 set -e
 
@@ -15,39 +16,42 @@ if [ ! -f "target/release/tor-http-client" ]; then
     echo ""
 fi
 
-# Get onion address
+# Get URL from command line or saved address
 if [ $# -eq 1 ]; then
-    ADDR="$1"
+    URL="$1"
 elif [ -f ".onion_address" ]; then
-    ADDR=$(cat .onion_address)
-    echo "📍 Using saved address: $ADDR"
+    URL=$(cat .onion_address)
+    echo "📍 Using saved address: $URL"
     echo ""
 else
-    echo "❌ No onion address found"
+    echo "❌ No URL provided"
     echo ""
     echo "Usage:"
-    echo "  ./eddi-connect <onion-address>"
+    echo "  ./eddi-connect <url>"
     echo ""
-    echo "Example:"
-    echo "  ./eddi-connect http://example.onion:80"
+    echo "Examples:"
+    echo "  Tor Hidden Services (.onion):"
+    echo "    ./eddi-connect http://example.onion"
+    echo "    ./eddi-connect example.onion/status"
+    echo "    ./eddi-connect http://example.onion:8080/api"
     echo ""
-    echo "Or start the server first with: ./eddi-server"
+    echo "  Regular Websites (via Tor anonymously):"
+    echo "    ./eddi-connect https://check.torproject.org"
+    echo "    ./eddi-connect http://httpbin.org/ip"
+    echo "    ./eddi-connect https://www.eff.org"
+    echo ""
+    echo "Or start the EDDI server first with: ./eddi-server"
     exit 1
 fi
 
-# Normalize address
-if [[ ! "$ADDR" =~ ^https?:// ]]; then
-    ADDR="http://$ADDR"
-fi
-if [[ ! "$ADDR" =~ :[0-9]+(/|$) ]]; then
-    ADDR=$(echo "$ADDR" | sed 's|\(\.onion\)\(/\|$\)|\1:80\2|')
-fi
-
-echo "🔗 Connecting to: $ADDR"
+echo "🔗 Connecting to: $URL"
 echo "⏳ First connection may take 10-30 seconds..."
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Connect
-exec target/release/tor-http-client "$ADDR"
+# Connect via Tor
+# The tor-http-client handles all URL formats automatically:
+# - .onion addresses: direct connection within Tor network
+# - Regular URLs: anonymized connection via Tor exit nodes
+exec target/release/tor-http-client "$URL"
