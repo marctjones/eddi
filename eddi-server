@@ -1,11 +1,67 @@
 #!/bin/bash
 # Simple EDDI Server Launcher
-# Usage: ./eddi-server
+# Usage: ./eddi-server [--force]
+#
+# Options:
+#   --force    Automatically kill existing processes and clean locks
 
-set -e
+FORCE=0
+if [ "$1" = "--force" ] || [ "$1" = "-f" ]; then
+    FORCE=1
+fi
 
 echo "🚀 Starting EDDI Server..."
 echo ""
+
+# Check for running eddi processes
+EDDI_PIDS=$(pgrep -f "target/(debug|release)/eddi" 2>/dev/null || true)
+
+if [ -n "$EDDI_PIDS" ]; then
+    echo "⚠️  Found running eddi process(es): $EDDI_PIDS"
+
+    if [ $FORCE -eq 1 ]; then
+        echo "🔪 Force mode: Killing existing processes..."
+        for PID in $EDDI_PIDS; do
+            kill -TERM $PID 2>/dev/null || kill -KILL $PID 2>/dev/null || true
+        done
+        sleep 1
+        echo "✅ Processes killed"
+    else
+        echo ""
+        echo "Another eddi instance is running!"
+        echo "Options:"
+        echo "  1. Run './eddi-cleanup' to clean up manually"
+        echo "  2. Run './eddi-server --force' to auto-cleanup"
+        echo "  3. Kill manually: kill $EDDI_PIDS"
+        echo ""
+        exit 1
+    fi
+    echo ""
+fi
+
+# Clean up Arti locks if they exist
+ARTI_DIR="$HOME/.local/share/arti"
+if [ -d "$ARTI_DIR" ]; then
+    LOCKS_FOUND=0
+
+    # Remove state locks (these are the main culprits)
+    if find "$ARTI_DIR" -name "state.lock" 2>/dev/null | grep -q .; then
+        if [ $FORCE -eq 1 ]; then
+            echo "🧹 Removing stale Arti lock files..."
+            find "$ARTI_DIR" -name "state.lock" -delete 2>/dev/null || true
+            LOCKS_FOUND=1
+        else
+            echo "⚠️  Found Arti lock files"
+            echo "Run with --force to auto-cleanup, or use ./eddi-cleanup"
+            echo ""
+        fi
+    fi
+
+    if [ $LOCKS_FOUND -eq 1 ]; then
+        echo "✅ Lock files cleaned"
+        echo ""
+    fi
+fi
 
 # Build if needed
 if [ ! -f "target/release/eddi" ]; then

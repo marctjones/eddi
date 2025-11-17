@@ -146,6 +146,36 @@ eddi/
 
 ## Troubleshooting
 
+### "State already locked" Error
+
+If you see `State already locked` or `Another process is managing the directory`:
+
+**Quick Fix:**
+```bash
+# Option 1: Use force mode (kills old processes automatically)
+./eddi-server --force
+
+# Option 2: Use the cleanup tool (interactive)
+./eddi-cleanup
+```
+
+**What's happening:**
+- Another eddi instance is still running, or
+- A previous instance crashed and left lock files behind
+
+**Manual cleanup:**
+```bash
+# 1. Find and kill running processes
+pgrep -f eddi
+kill <PID>
+
+# 2. Remove Arti lock files
+find ~/.local/share/arti -name "state.lock" -delete
+
+# 3. Clean up sockets
+rm -f /tmp/eddi*.sock
+```
+
 ### DNS Resolution Issues
 
 If you see "failed to resolve" errors:
