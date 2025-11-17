@@ -102,8 +102,15 @@ async fn http_get_over_tor(
             Ok(0) => break, // EOF
             Ok(n) => response.extend_from_slice(&buffer[..n]),
             Err(e) => {
-                error!("Error reading response: {}", e);
-                break;
+                // END cell with MISC reason is normal graceful closure
+                let err_str = e.to_string();
+                if err_str.contains("END cell with reason MISC") || err_str.contains("END") {
+                    // Normal connection closure from server
+                    break;
+                } else {
+                    error!("Error reading response: {}", e);
+                    break;
+                }
             }
         }
     }
