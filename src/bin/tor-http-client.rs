@@ -6,21 +6,56 @@
 //! - Connecting to regular websites via Tor (anonymized)
 //! - Making HTTP requests over Tor
 //! - No proxy servers - direct Tor connection via Arti
-//!
-//! Usage:
-//!   tor-http-client <url>
-//!
-//! Examples:
-//!   tor-http-client http://example.onion/status
-//!   tor-http-client https://check.torproject.org
-//!   tor-http-client http://httpbin.org/ip
 
 use anyhow::{Context, Result, bail};
 use arti_client::{TorClient, TorClientConfig};
 use tor_rtcompat::PreferredRuntime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tracing::{info, error};
+use tracing::{info, error, debug};
 use tracing_subscriber;
+use clap::Parser;
+
+/// tor-http-client - Test connections to onion services and websites via Tor
+///
+/// This tool allows you to test eddi servers or any other onion service
+/// or clearnet website over the Tor network. It supports full URL paths,
+/// not just index pages.
+///
+/// Examples:
+///   tor-http-client http://your-onion-address.onion/status
+///   tor-http-client https://check.torproject.org
+///   tor-http-client http://httpbin.org/ip
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// URL to fetch (supports .onion and clearnet URLs)
+    ///
+    /// Examples:
+    ///   http://example.onion/status
+    ///   https://check.torproject.org
+    ///   http://httpbin.org/ip
+    url: String,
+
+    /// Show only response headers, not body
+    #[arg(short = 'H', long)]
+    headers_only: bool,
+
+    /// Maximum response body size in bytes (0 = unlimited)
+    #[arg(short = 'l', long, default_value = "1048576")]
+    max_body_size: usize,
+
+    /// Connection timeout in seconds
+    #[arg(short = 't', long, default_value = "30")]
+    timeout: u64,
+
+    /// Show detailed connection information
+    #[arg(short = 'v', long)]
+    verbose: bool,
+
+    /// Quiet mode - only show response body
+    #[arg(short = 'q', long)]
+    quiet: bool,
+}
 
 /// Parse URL and extract the address, port, and path
 /// Supports both .onion addresses and regular websites
@@ -74,9 +109,15 @@ async fn http_get_over_tor(
     port: u16,
     path: &str,
     is_onion: bool,
+    headers_only: bool,
+    max_body_size: usize,
+    quiet: bool,
 ) -> Result<String> {
     let target_type = if is_onion { "onion service" } else { "website (via Tor exit)" };
-    info!("Connecting to {}:{} via Tor ({})...", address, port, target_type);
+
+    if !quiet {
+        info!("Connecting to {}:{} via Tor ({})...", address, port, target_type);
+    }
 
     // Connect via Tor - works for both .onion addresses and regular websites
     // For .onion: direct connection within Tor network
@@ -86,7 +127,9 @@ async fn http_get_over_tor(
         .await
         .context("Failed to connect via Tor")?;
 
-    info!("✓ Connected to {} via Tor", address);
+    if !quiet {
+        info!("✓ Connected to {} via Tor", address);
+    }
 
     // Construct HTTP/1.1 GET request
     let request = format!(
@@ -94,7 +137,9 @@ async fn http_get_over_tor(
         path, address
     );
 
-    info!("Sending HTTP request...");
+    if !quiet {
+        info!("Sending HTTP request...");
+    }
 
     // Send the HTTP request
     stream.write_all(request.as_bytes())
@@ -105,16 +150,30 @@ async fn http_get_over_tor(
         .await
         .context("Failed to flush stream")?;
 
-    info!("✓ Request sent, waiting for response...");
+    if !quiet {
+        info!("✓ Request sent, waiting for response...");
+    }
 
     // Read the response
     let mut response = Vec::new();
     let mut buffer = [0u8; 4096];
+    let mut total_read = 0;
 
     loop {
+        // Check size limit
+        if max_body_size > 0 && total_read >= max_body_size {
+            if !quiet {
+                info!("Reached maximum body size limit ({} bytes), stopping read", max_body_size);
+            }
+            break;
+        }
+
         match stream.read(&mut buffer).await {
             Ok(0) => break, // EOF
-            Ok(n) => response.extend_from_slice(&buffer[..n]),
+            Ok(n) => {
+                response.extend_from_slice(&buffer[..n]);
+                total_read += n;
+            }
             Err(e) => {
                 // END cell with MISC reason is normal graceful closure
                 let err_str = e.to_string();
@@ -129,87 +188,117 @@ async fn http_get_over_tor(
         }
     }
 
-    info!("✓ Received {} bytes", response.len());
+    if !quiet {
+        info!("✓ Received {} bytes", response.len());
+    }
 
     // Convert to string
-    let response_str = String::from_utf8_lossy(&response).to_string();
+    let mut response_str = String::from_utf8_lossy(&response).to_string();
+
+    // If headers_only, truncate at first blank line after headers
+    if headers_only {
+        if let Some(pos) = response_str.find("\r\n\r\n") {
+            response_str.truncate(pos + 4);
+        } else if let Some(pos) = response_str.find("\n\n") {
+            response_str.truncate(pos + 2);
+        }
+    }
 
     Ok(response_str)
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging
+    // Parse CLI arguments first
+    let cli = Cli::parse();
+
+    // Initialize logging based on verbosity
+    let log_level = if cli.quiet {
+        "error"
+    } else if cli.verbose {
+        "debug"
+    } else {
+        "info"
+    };
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
         )
         .init();
 
-    // Get the onion URL from command line arguments
-    let args: Vec<String> = std::env::args().collect();
-
-    if args.len() < 2 {
-        eprintln!("Usage: {} <url>", args[0]);
-        eprintln!();
-        eprintln!("Examples:");
-        eprintln!("  Onion services:");
-        eprintln!("    {} http://example.onion:80", args[0]);
-        eprintln!("    {} example.onion:80/status", args[0]);
-        eprintln!();
-        eprintln!("  Regular websites (via Tor exit):");
-        eprintln!("    {} https://check.torproject.org", args[0]);
-        eprintln!("    {} http://httpbin.org/ip", args[0]);
-        eprintln!();
-        eprintln!("This client uses Arti to connect directly via Tor.");
-        eprintln!("No proxy servers or IP-based protocols are used.");
-        std::process::exit(1);
+    if !cli.quiet {
+        info!("=== Tor HTTP Client (via Arti) ===");
+        info!("Target: {}", cli.url);
+        info!("");
     }
 
-    let onion_url = &args[1];
-
-    info!("=== Tor HTTP Client (via Arti) ===");
-    info!("Target: {}", onion_url);
-    info!("");
-
     // Parse the URL
-    let (address, port, path, is_onion) = parse_url(onion_url)
+    let (address, port, path, is_onion) = parse_url(&cli.url)
         .context("Failed to parse URL")?;
 
     let target_type = if is_onion { "Onion service" } else { "Website (via Tor)" };
-    info!("Parsed URL:");
-    info!("  Address: {}", address);
-    info!("  Port: {}", port);
-    info!("  Path: {}", path);
-    info!("  Type: {}", target_type);
-    info!("");
+
+    if cli.verbose {
+        debug!("Parsed URL:");
+        debug!("  Address: {}", address);
+        debug!("  Port: {}", port);
+        debug!("  Path: {}", path);
+        debug!("  Type: {}", target_type);
+        debug!("");
+    }
 
     // Step 1: Initialize Arti Tor client and bootstrap
-    info!("Step 1: Bootstrapping Tor client via Arti...");
-    info!("(This may take 10-30 seconds on first run)");
+    if !cli.quiet {
+        info!("Bootstrapping Tor client via Arti...");
+        if !cli.verbose {
+            info!("(This may take 10-30 seconds on first run)");
+        }
+    }
 
     let config = TorClientConfig::default();
-    let tor_client = TorClient::create_bootstrapped(config)
-        .await
-        .context("Failed to bootstrap Tor client")?;
 
-    info!("✓ Tor client bootstrapped successfully");
-    info!("");
+    // Use timeout
+    let tor_client = tokio::time::timeout(
+        std::time::Duration::from_secs(cli.timeout),
+        TorClient::create_bootstrapped(config)
+    )
+    .await
+    .context("Tor bootstrap timeout")??;
+
+    if !cli.quiet {
+        info!("✓ Tor client bootstrapped successfully");
+        info!("");
+        info!("Making HTTP request via Tor...");
+    }
 
     // Step 2: Connect and make HTTP request
-    info!("Step 2: Making HTTP request via Tor...");
+    let response = http_get_over_tor(
+        &tor_client,
+        &address,
+        port,
+        &path,
+        is_onion,
+        cli.headers_only,
+        cli.max_body_size,
+        cli.quiet,
+    )
+    .await
+    .context("Failed to make HTTP request")?;
 
-    let response = http_get_over_tor(&tor_client, &address, port, &path, is_onion)
-        .await
-        .context("Failed to make HTTP request")?;
+    if !cli.quiet {
+        info!("");
+        info!("========================================");
+        info!("Response received:");
+        info!("========================================");
+    }
 
-    info!("");
-    info!("========================================");
-    info!("Response received:");
-    info!("========================================");
     println!("{}", response);
-    info!("========================================");
+
+    if !cli.quiet {
+        info!("========================================");
+    }
 
     Ok(())
 }
