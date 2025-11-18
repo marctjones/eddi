@@ -20,21 +20,21 @@ The binary will be at `./target/release/eddi-msgsrv`
 
 ## 📖 Basic Usage
 
-### 1. Create a Fortress (Server)
+### 1. Create a Server (Server)
 
 ```bash
-eddi-msgsrv create-fortress --name my-server --ttl 5
+eddi-msgsrv create-server --name my-server --ttl 5
 ```
 
 **Output:**
 ```
-Creating fortress: my-server
-✓ Fortress 'my-server' created
+Creating eddi messaging server: my-server
+✓ Server 'my-server' created
   Socket: /tmp/eddi-msgsrv-my-server.sock
   Message TTL: 5 minutes
   Status: Running
 
-Press Ctrl+C to stop the fortress
+Press Ctrl+C to stop the server
 ```
 
 ### 2. Create a Broker (Handshake Server)
@@ -42,12 +42,12 @@ Press Ctrl+C to stop the fortress
 In a new terminal:
 
 ```bash
-eddi-msgsrv create-broker --fortress my-server --namespace user@example.com
+eddi-msgsrv create-broker --server my-server --namespace user@example.com
 ```
 
 **Output:**
 ```
-Creating broker for fortress: my-server
+Creating broker for server: my-server
 ✓ Broker created
 
 📋 Connection Details:
@@ -81,22 +81,22 @@ eddi-msgsrv connect --code H7K-9M3 --namespace user@example.com
   Broker ID: a1b2c3d4e5f6...
 
 ✓ Handshake successful!
-  Fortress: fortress-address.onion
+  Server: server-address.onion
   Access token: XYZ123AB...
 
-✓ Connected to fortress!
+✓ Connected to server!
 ```
 
 ### 4. Send a Message
 
 ```bash
-eddi-msgsrv send "Hello, fortress!"
+eddi-msgsrv send "Hello, server!"
 ```
 
 **Output:**
 ```
-📤 Sending message to: fortress-address.onion
-  Message: Hello, fortress!
+📤 Sending message to: server-address.onion
+  Message: Hello, server!
 ✓ Message sent
 ```
 
@@ -118,8 +118,8 @@ eddi-msgsrv listen
 ### Management
 
 ```bash
-# List all fortresses
-eddi-msgsrv list-fortresses
+# List all servers
+eddi-msgsrv list-servers
 
 # Show status
 eddi-msgsrv status
@@ -127,8 +127,8 @@ eddi-msgsrv status
 # List connections
 eddi-msgsrv list-connections
 
-# Stop a fortress
-eddi-msgsrv stop-fortress my-server
+# Stop a server
+eddi-msgsrv stop-server my-server
 
 # Cleanup
 eddi-msgsrv cleanup --force
@@ -137,13 +137,13 @@ eddi-msgsrv cleanup --force
 ### Advanced
 
 ```bash
-# List clients for a fortress
-eddi-msgsrv list-clients --fortress my-server
+# List clients for a server
+eddi-msgsrv list-clients --server my-server
 
 # Revoke client access
-eddi-msgsrv revoke-client --fortress my-server --code H7K-9M3
+eddi-msgsrv revoke-client --server my-server --code H7K-9M3
 
-# Disconnect from fortress
+# Disconnect from server
 eddi-msgsrv disconnect my-server
 ```
 
@@ -152,8 +152,8 @@ eddi-msgsrv disconnect my-server
 ### Quick Operations
 
 ```bash
-# Create fortress
-./scripts/eddi-msgsrv create-fortress my-server 10
+# Create server
+./scripts/eddi-msgsrv create-server my-server 10
 
 # Create broker
 ./scripts/eddi-msgsrv create-broker my-server user@example.com
@@ -196,7 +196,7 @@ cargo test --test msgserver_tests
 
 1. **Tor Mode (Default - Recommended) 🧅**
    ```bash
-   eddi-msgsrv create-fortress --name my-server --ttl 5
+   eddi-msgsrv create-server --name my-server --ttl 5
    ```
    - **Tor enabled by default** - no flags needed!
    - Gets a persistent `.onion` address
@@ -208,7 +208,7 @@ cargo test --test msgserver_tests
 
 2. **Local-Only Mode (Advanced Option - Development)**
    ```bash
-   eddi-msgsrv create-fortress --name my-server --ttl 5 --local-only
+   eddi-msgsrv create-server --name my-server --ttl 5 --local-only
    ```
    - **Disables Tor** - Unix sockets only
    - Uses **Unix Domain Sockets** (`/tmp/eddi-msgsrv-*.sock`)
@@ -225,19 +225,19 @@ cargo test --test msgserver_tests
 
 ### Introduction Pattern
 
-1. **Admin creates Fortress** → Gets persistent address
+1. **Admin creates Server** → Gets persistent address
 2. **Admin creates Broker** → Gets ephemeral code (2-minute lifetime)
 3. **Admin shares code** → Via secure channel (phone, Signal, etc.)
 4. **Client connects to Broker** → Time-based discovery
 5. **Broker performs handshake** → Validates client
-6. **Broker issues token** → Fortress access granted
+6. **Broker issues token** → Server access granted
 7. **Broker shuts down** → No longer exposed
-8. **Client connects to Fortress** → With access token
+8. **Client connects to Server** → With access token
 
 ### Benefits
 
 - **Attack Surface Minimization**: Broker only lives for 2 minutes
-- **Fortress Stealth**: Main server doesn't handle authentication
+- **Server Stealth**: Main server doesn't handle authentication
 - **Persistence**: Clients can reconnect without new codes
 - **Token Revocation**: Remove access without restarting server
 
@@ -245,20 +245,20 @@ cargo test --test msgserver_tests
 
 ```
 Tor Mode (Default) ✅:
-  Fortress ← UDS → Client (local, fast)
+  Server ← UDS → Client (local, fast)
            ↓
            Tor → Client (remote, secure)
 
   Both listeners active simultaneously (hybrid mode)!
 
 Local-Only Mode (--local-only flag):
-  Fortress ← UDS → Client (local only)
+  Server ← UDS → Client (local only)
   Broker ← UDS → Client (local only)
 
   No Tor, fast development mode
 
 Future (Broker Tor + Client Connector):
-  Fortress ← UDS/Tor → Client
+  Server ← UDS/Tor → Client
   Broker ← Tor → Client (ephemeral .onion)
 
   Full end-to-end Tor integration
@@ -279,7 +279,7 @@ timedatectl status
 ### Connection Issues
 
 ```bash
-# Check fortress status
+# Check server status
 eddi-msgsrv status my-server
 
 # List active connections
@@ -292,7 +292,7 @@ ls -l /tmp/eddi-msgsrv-*.sock
 ### Clean Slate
 
 ```bash
-# Stop all fortresses
+# Stop all servers
 eddi-msgsrv cleanup --force
 
 # Remove state (nuclear option)
@@ -314,7 +314,7 @@ See [docs/MESSAGE_SERVER.md](docs/MESSAGE_SERVER.md) for comprehensive documenta
 ## 🚦 What's Working
 
 ✅ **Core Functionality**
-- Fortress creation and management
+- Server creation and management
 - Broker creation with code generation
 - Client handshake simulation
 - Message protocol
@@ -335,7 +335,7 @@ See [docs/MESSAGE_SERVER.md](docs/MESSAGE_SERVER.md) for comprehensive documenta
 ## 🔨 What's Next (Future Enhancements)
 
 ✅ **Tor Integration (Partially Complete)**
-- ✅ Fortress onion services (Phase 2.1)
+- ✅ Server onion services (Phase 2.1)
 - ✅ Hybrid mode (Unix + Tor listeners)
 - ⏳ Ephemeral broker onion addresses (Phase 2.2)
 - ⏳ Client Tor connector (Phase 2.3)
@@ -361,15 +361,15 @@ See [docs/MESSAGE_SERVER.md](docs/MESSAGE_SERVER.md) for comprehensive documenta
 ### Scenario 0: Remote Access via Tor 🧅 (Default)
 
 ```bash
-# Create fortress with Tor enabled (default - no flags needed!)
-eddi-msgsrv create-fortress --name remote-server --ttl 10
+# Create server with Tor enabled (default - no flags needed!)
+eddi-msgsrv create-server --name remote-server --ttl 10
 
 # Output:
-# 🧅 Tor mode enabled (default) - fortress will be accessible via .onion address
+# 🧅 Tor mode enabled (default) - server will be accessible via .onion address
 # ⏳ This may take 30-60 seconds (bootstrapping Tor)...
 # 💡 Use --local-only to disable Tor for fast local development
 #
-# ✓ Fortress 'remote-server' created
+# ✓ Server 'remote-server' created
 #   Socket: /tmp/eddi-msgsrv-remote-server.sock
 #   Message TTL: 10 minutes
 #   Status: Running
@@ -395,14 +395,14 @@ eddi-msgsrv send "Hello local!" --server remote-server
 ### Scenario 1: Team Collaboration
 
 ```bash
-# Team lead creates fortress (Tor enabled by default)
-eddi-msgsrv create-fortress --name team-chat --ttl 10
+# Team lead creates server (Tor enabled by default)
+eddi-msgsrv create-server --name team-chat --ttl 10
 
 # For each team member, create broker
-eddi-msgsrv create-broker --fortress team-chat --namespace alice@team.com
+eddi-msgsrv create-broker --server team-chat --namespace alice@team.com
 # Share code: H7K-9M3
 
-eddi-msgsrv create-broker --fortress team-chat --namespace bob@team.com
+eddi-msgsrv create-broker --server team-chat --namespace bob@team.com
 # Share code: P2R-5X8
 
 # Team members connect
@@ -417,14 +417,14 @@ eddi-msgsrv listen --server team-chat
 ### Scenario 2: Ephemeral Coordination
 
 ```bash
-# Quick fortress for one-time event
-eddi-msgsrv create-fortress --name event-coord --ttl 1
+# Quick server for one-time event
+eddi-msgsrv create-server --name event-coord --ttl 1
 
 # Create brokers for participants
-eddi-msgsrv create-broker --fortress event-coord --namespace coord@event.org
+eddi-msgsrv create-broker --server event-coord --namespace coord@event.org
 
 # After event, cleanup
-eddi-msgsrv stop-fortress event-coord
+eddi-msgsrv stop-server event-coord
 eddi-msgsrv cleanup --force
 ```
 

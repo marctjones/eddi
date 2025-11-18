@@ -25,8 +25,8 @@ pub struct ServerInstance {
 }
 
 impl ServerInstance {
-    /// Create a new Fortress server instance
-    pub async fn new_fortress(
+    /// Create a new eddi messaging server instance (emsgsrv)
+    pub async fn new_server(
         name: String,
         socket_path: PathBuf,
         ttl_minutes: u64,
@@ -37,17 +37,17 @@ impl ServerInstance {
 
         // Initialize Tor if requested
         let (onion_address, tor_stream) = if use_tor {
-            tracing::info!("🧅 Initializing Tor for fortress: {}", name);
+            tracing::info!("🧅 Initializing Tor for server: {}", name);
 
             let key_dir = MsgSrvCli::state_dir().join("tor-keys");
             let tor = Arc::new(TorManager::new(key_dir).await?);
 
             let (addr, stream) = tor.create_onion_service(&name).await?;
 
-            tracing::info!("🧅 Fortress onion address: {}", addr);
+            tracing::info!("🧅 Server onion address: {}", addr);
             (Some(addr), Some(stream))
         } else {
-            tracing::info!("📍 Fortress will use Unix sockets only (local access)");
+            tracing::info!("📍 Server will use Unix sockets only (local access)");
             (None, None)
         };
 
@@ -378,8 +378,8 @@ impl ServerManager {
         }
     }
 
-    /// Create a new fortress
-    pub async fn create_fortress(
+    /// Create a new eddi messaging server
+    pub async fn create_server(
         &self,
         name: String,
         ttl_minutes: u64,
@@ -392,7 +392,7 @@ impl ServerManager {
 
         let socket_path = self.get_socket_path(&name);
 
-        let instance = ServerInstance::new_fortress(
+        let instance = ServerInstance::new_server(
             name.clone(),
             socket_path,
             ttl_minutes,
@@ -488,20 +488,20 @@ mod tests {
         let state_manager = Arc::new(StateManager::new(dir.path()).unwrap());
         let manager = ServerManager::new(state_manager);
 
-        // Create fortress (without Tor for testing)
-        let fortress = manager
-            .create_fortress("test-fortress".to_string(), 5, false)
+        // Create server (without Tor for testing)
+        let server = manager
+            .create_server("test-server".to_string(), 5, false)
             .await
             .unwrap();
 
-        assert_eq!(fortress.config().name, "test-fortress");
+        assert_eq!(server.config().name, "test-server");
 
         // List servers
         let servers = manager.list_servers().await;
         assert_eq!(servers.len(), 1);
 
         // Stop server
-        manager.stop_server("test-fortress").await.unwrap();
+        manager.stop_server("test-server").await.unwrap();
 
         let servers = manager.list_servers().await;
         assert_eq!(servers.len(), 0);

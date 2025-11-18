@@ -17,7 +17,7 @@ The eddi message server currently uses **Unix Domain Sockets** for communication
 ### Current Architecture (Local)
 
 ```
-Client (same machine) ←→ Unix Socket ←→ Fortress
+Client (same machine) ←→ Unix Socket ←→ Server
                     (kernel IPC, not network)
 ```
 
@@ -29,12 +29,12 @@ Client (same machine) ←→ Unix Socket ←→ Fortress
 ### Planned Architecture (Remote via Tor)
 
 ```
-Client (remote) ←→ Tor ←→ .onion ←→ Fortress
+Client (remote) ←→ Tor ←→ .onion ←→ Server
               (encrypted, anonymous, routed)
 ```
 
 For remote access, all communication will go through Tor hidden services:
-- Fortress gets a persistent `.onion` address
+- Server gets a persistent `.onion` address
 - Broker gets an ephemeral `.onion` address
 - All traffic is encrypted and anonymized
 - No IP addresses exposed
@@ -58,22 +58,22 @@ For remote access, all communication will go through Tor hidden services:
 
 ### Phase 2: Tor Integration ✅ (Complete)
 
-#### 2.1 Fortress Onion Services ✅
+#### 2.1 Server Onion Services ✅
 
 **Implementation Status:** COMPLETE
 
-Fortresses can now be created with Tor onion services:
+Servers can now be created with Tor onion services:
 
 ```rust
-// Create fortress with Tor enabled
-let instance = ServerManager::create_fortress(
-    "my-fortress".to_string(),
+// Create server with Tor enabled
+let instance = ServerManager::create_server(
+    "my-server".to_string(),
     5,      // TTL in minutes
     true    // Enable Tor
 ).await?;
 
-// Fortress now has:
-// - Unix socket for local access: /tmp/eddi-msgsrv-my-fortress.sock
+// Server now has:
+// - Unix socket for local access: /tmp/eddi-msgsrv-my-server.sock
 // - Onion address for remote access: abc123...xyz.onion
 // - Both listeners run concurrently in hybrid mode
 ```
@@ -107,7 +107,7 @@ let broker_onion = create_ephemeral_onion_service(
 
 **Status:** PLANNED
 
-Clients will connect to fortresses via Tor:
+Clients will connect to servers via Tor:
 
 ```rust
 // Client connects via Tor (planned)
@@ -123,14 +123,14 @@ let stream = tor.connect_to_onion("abc123...xyz.onion", 80).await?;
 
 **Status:** COMPLETE
 
-Fortresses now operate in **hybrid mode by default** when Tor is enabled:
+Servers now operate in **hybrid mode by default** when Tor is enabled:
 
 ```rust
-// Fortress automatically listens on BOTH when use_tor=true
-let fortress = create_fortress("my-fortress", 5, true).await?;
+// Server automatically listens on BOTH when use_tor=true
+let server = create_server("my-server", 5, true).await?;
 
 // Hybrid mode provides:
-// - Unix Socket: /tmp/eddi-msgsrv-my-fortress.sock (local, fast)
+// - Unix Socket: /tmp/eddi-msgsrv-my-server.sock (local, fast)
 // - Onion Service: abc123...xyz.onion (remote, anonymous)
 // - Both active simultaneously
 ```
@@ -142,11 +142,11 @@ This gives the best of both worlds: fast local access via Unix sockets and secur
 #### 3.1 Tor Client Authorization (Stealth Mode)
 
 ```rust
-// Fortress is invisible without client key
-let client_auth_key = fortress.generate_client_auth()?;
+// Server is invisible without client key
+let client_auth_key = server.generate_client_auth()?;
 
-// Only clients with this key can even *see* the fortress
-fortress.authorize_client(&client_auth_key)?;
+// Only clients with this key can even *see* the server
+server.authorize_client(&client_auth_key)?;
 ```
 
 #### 3.2 Multi-Hop Routing
@@ -194,15 +194,15 @@ src/msgserver/
 **Implemented:**
 
 ```bash
-# Create fortress with Tor (DEFAULT - hybrid mode: local + remote)
-eddi-msgsrv create-fortress --name my-server --ttl 5
+# Create server with Tor (DEFAULT - hybrid mode: local + remote)
+eddi-msgsrv create-server --name my-server --ttl 5
 
 # Output (Tor enabled by default):
-# 🧅 Tor mode enabled (default) - fortress will be accessible via .onion address
+# 🧅 Tor mode enabled (default) - server will be accessible via .onion address
 # ⏳ This may take 30-60 seconds (bootstrapping Tor)...
 # 💡 Use --local-only to disable Tor for fast local development
 #
-# ✓ Fortress 'my-server' created
+# ✓ Server 'my-server' created
 #   Socket: /tmp/eddi-msgsrv-my-server.sock
 #   Message TTL: 5 minutes
 #   Status: Running
@@ -210,14 +210,14 @@ eddi-msgsrv create-fortress --name my-server --ttl 5
 # 🧅 Onion Address: abc123def456ghijklmno789.onion
 #   (Accessible via Tor network)
 
-# Create fortress without Tor (local only, fast development)
-eddi-msgsrv create-fortress --name my-server --ttl 5 --local-only
+# Create server without Tor (local only, fast development)
+eddi-msgsrv create-server --name my-server --ttl 5 --local-only
 
 # Output (local-only mode):
 # ⚠️  Local-only mode - using Unix sockets only (no Tor)
 # 💡 Remove --local-only flag to enable Tor for remote access
 #
-# ✓ Fortress 'my-server' created
+# ✓ Server 'my-server' created
 #   Socket: /tmp/eddi-msgsrv-my-server.sock
 #   Message TTL: 5 minutes
 #   Status: Running
@@ -228,7 +228,7 @@ eddi-msgsrv create-fortress --name my-server --ttl 5 --local-only
 **Planned (Client connector):**
 
 ```bash
-# Connect to fortress via Tor (coming soon)
+# Connect to server via Tor (coming soon)
 eddi-msgsrv connect --code XYZ-123 --namespace user@example.com
 ```
 
@@ -255,11 +255,11 @@ async fn test_onion_service_creation() {
 ```rust
 #[tokio::test]
 async fn test_end_to_end_tor() {
-    // Create fortress with Tor
-    let fortress = create_fortress("test", true).await?;
+    // Create server with Tor
+    let server = create_server("test", true).await?;
 
     // Create broker
-    let broker = create_broker(&fortress.onion_addr).await?;
+    let broker = create_broker(&server.onion_addr).await?;
 
     // Client connects via Tor
     let client = connect_via_tor(&broker.code).await?;
@@ -268,7 +268,7 @@ async fn test_end_to_end_tor() {
     client.send("Hello over Tor!").await?;
 
     // Verify received
-    let msg = fortress.receive().await?;
+    let msg = server.receive().await?;
     assert_eq!(msg.content, "Hello over Tor!");
 }
 ```
@@ -296,7 +296,7 @@ async fn test_end_to_end_tor() {
 
 ## Timeline
 
-- **Q1 2024**: Basic Tor integration (fortress + broker onions)
+- **Q1 2024**: Basic Tor integration (server + broker onions)
 - **Q2 2024**: Client Tor connector
 - **Q3 2024**: Hybrid mode (Unix + Tor)
 - **Q4 2024**: Client authorization (stealth mode)

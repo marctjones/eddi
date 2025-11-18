@@ -15,11 +15,11 @@ pub async fn execute_command(command: MsgSrvCommand) -> Result<()> {
     let server_manager = ServerManager::new(state_manager.clone());
 
     match command {
-        MsgSrvCommand::CreateFortress { name, ttl, local_only, stealth } => {
-            handle_create_fortress(server_manager, name, ttl, local_only, stealth).await
+        MsgSrvCommand::CreateServer { name, ttl, local_only, stealth } => {
+            handle_create_server(server_manager, name, ttl, local_only, stealth).await
         }
-        MsgSrvCommand::CreateBroker { fortress, namespace, timeout, local_only } => {
-            handle_create_broker(server_manager, state_manager, fortress, namespace, timeout, local_only).await
+        MsgSrvCommand::CreateBroker { server, namespace, timeout, local_only } => {
+            handle_create_broker(server_manager, state_manager, server, namespace, timeout, local_only).await
         }
         MsgSrvCommand::Connect { code, namespace, time_window, alias } => {
             handle_connect(state_manager, code, namespace, time_window, alias).await
@@ -33,14 +33,14 @@ pub async fn execute_command(command: MsgSrvCommand) -> Result<()> {
         MsgSrvCommand::Listen { server, daemon, background } => {
             handle_listen(state_manager, server, daemon, background).await
         }
-        MsgSrvCommand::ListFortresses { verbose } => {
-            handle_list_fortresses(state_manager, verbose).await
+        MsgSrvCommand::ListServers { verbose } => {
+            handle_list_servers(state_manager, verbose).await
         }
         MsgSrvCommand::ListBrokers => {
             handle_list_brokers(server_manager).await
         }
-        MsgSrvCommand::ListClients { fortress } => {
-            handle_list_clients(state_manager, fortress).await
+        MsgSrvCommand::ListClients { server } => {
+            handle_list_clients(state_manager, server).await
         }
         MsgSrvCommand::ListConnections { verbose } => {
             handle_list_connections(state_manager, verbose).await
@@ -48,8 +48,8 @@ pub async fn execute_command(command: MsgSrvCommand) -> Result<()> {
         MsgSrvCommand::Status { name } => {
             handle_status(state_manager, server_manager, name).await
         }
-        MsgSrvCommand::StopFortress { name } => {
-            handle_stop_fortress(server_manager, state_manager, name).await
+        MsgSrvCommand::StopServer { name } => {
+            handle_stop_server(server_manager, state_manager, name).await
         }
         MsgSrvCommand::StopBroker { id } => {
             handle_stop_broker(server_manager, id).await
@@ -57,8 +57,8 @@ pub async fn execute_command(command: MsgSrvCommand) -> Result<()> {
         MsgSrvCommand::Disconnect { name } => {
             handle_disconnect(state_manager, name).await
         }
-        MsgSrvCommand::RevokeClient { fortress, code } => {
-            handle_revoke_client(state_manager, fortress, code).await
+        MsgSrvCommand::RevokeClient { server, code } => {
+            handle_revoke_client(state_manager, server, code).await
         }
         MsgSrvCommand::Cleanup { force } => {
             handle_cleanup(state_manager, force).await
@@ -66,19 +66,19 @@ pub async fn execute_command(command: MsgSrvCommand) -> Result<()> {
     }
 }
 
-async fn handle_create_fortress(
+async fn handle_create_server(
     server_manager: ServerManager,
     name: String,
     ttl: u64,
     local_only: bool,
     _stealth: bool,
 ) -> Result<()> {
-    println!("Creating fortress: {}", name);
+    println!("Creating eddi messaging server: {}", name);
 
     let use_tor = !local_only;
 
     if use_tor {
-        println!("🧅 Tor mode enabled (default) - fortress will be accessible via .onion address");
+        println!("🧅 Tor mode enabled (default) - server will be accessible via .onion address");
         println!("⏳ This may take 30-60 seconds (bootstrapping Tor)...");
         println!("💡 Use --local-only to disable Tor for fast local development");
         println!();
@@ -88,9 +88,9 @@ async fn handle_create_fortress(
         println!();
     }
 
-    let instance = server_manager.create_fortress(name.clone(), ttl, use_tor).await?;
+    let instance = server_manager.create_server(name.clone(), ttl, use_tor).await?;
 
-    println!("✓ Fortress '{}' created", name);
+    println!("✓ Eddi messaging server '{}' created", name);
     println!("  Socket: {:?}", instance.config().socket_path);
     println!("  Message TTL: {} minutes", ttl);
     println!("  Status: Running");
@@ -101,10 +101,10 @@ async fn handle_create_fortress(
     }
 
     // Keep the server running
-    println!("\nPress Ctrl+C to stop the fortress");
+    println!("\nPress Ctrl+C to stop the server");
     tokio::signal::ctrl_c().await?;
 
-    println!("\nStopping fortress...");
+    println!("\nStopping server...");
     instance.shutdown().await?;
 
     Ok(())
@@ -113,12 +113,12 @@ async fn handle_create_fortress(
 async fn handle_create_broker(
     server_manager: ServerManager,
     state_manager: Arc<StateManager>,
-    fortress: String,
+    server_name: String,
     namespace: String,
     timeout: u64,
     local_only: bool,
 ) -> Result<()> {
-    println!("Creating broker for fortress: {}", fortress);
+    println!("Creating broker for eddi messaging server: {}", server_name);
 
     let use_tor = !local_only;
 
@@ -131,16 +131,16 @@ async fn handle_create_broker(
         println!();
     }
 
-    // Verify fortress exists
-    let fortress_config = state_manager.get_server(&fortress)?
-        .context("Fortress not found")?;
+    // Verify server exists
+    let server_config = state_manager.get_server(&server_name)?
+        .context("Server not found")?;
 
     // Generate code and create handshake
     let code = handshake::generate_short_code();
     let broker_handshake = BrokerHandshake::new(
         namespace.clone(),
         code.clone(),
-        fortress_config.onion_address.unwrap_or_else(|| fortress.clone()),
+        server_config.onion_address.unwrap_or_else(|| server_name.clone()),
     );
 
     println!("✓ Broker created");
@@ -151,10 +151,10 @@ async fn handle_create_broker(
     println!("  Broker ID: {}", broker_handshake.identifier());
 
     println!("\n💡 Share with your client:");
-    println!("  eddi msgsrv connect --code {} --namespace {}", code, namespace);
+    println!("  eddi-msgsrv connect --code {} --namespace {}", code, namespace);
 
     // Create the broker instance
-    let instance = server_manager.create_broker(fortress, Duration::from_secs(timeout)).await?;
+    let instance = server_manager.create_broker(server_name, Duration::from_secs(timeout)).await?;
 
     // Wait for timeout or connection
     println!("\n⏳ Waiting for client connection...");
@@ -303,18 +303,18 @@ async fn handle_listen(
     Ok(())
 }
 
-async fn handle_list_fortresses(
+async fn handle_list_servers(
     state_manager: Arc<StateManager>,
     verbose: bool,
 ) -> Result<()> {
     let servers = state_manager.list_servers()?;
 
     if servers.is_empty() {
-        println!("No fortresses found");
+        println!("No eddi messaging servers found");
         return Ok(());
     }
 
-    println!("Fortresses ({}):", servers.len());
+    println!("Eddi messaging servers ({}):", servers.len());
     for server in servers {
         println!("\n  {} [{}]", server.name, server.status.to_string());
         if verbose {
@@ -354,19 +354,19 @@ async fn handle_list_brokers(
 
 async fn handle_list_clients(
     state_manager: Arc<StateManager>,
-    fortress: String,
+    server_name: String,
 ) -> Result<()> {
-    let server = state_manager.get_server(&fortress)?
-        .context("Fortress not found")?;
+    let server = state_manager.get_server(&server_name)?
+        .context("Server not found")?;
 
     let clients = state_manager.list_clients(&server.id)?;
 
     if clients.is_empty() {
-        println!("No clients for fortress: {}", fortress);
+        println!("No clients for server: {}", server_name);
         return Ok(());
     }
 
-    println!("Clients for '{}' ({}):", fortress, clients.len());
+    println!("Clients for '{}' ({}):", server_name, clients.len());
     for client in clients {
         println!("\n  Code: {}", client.code);
         println!("    Status: {}", client.status.to_string());
@@ -441,16 +441,16 @@ async fn handle_status(
     Ok(())
 }
 
-async fn handle_stop_fortress(
+async fn handle_stop_server(
     server_manager: ServerManager,
     _state_manager: Arc<StateManager>,
     name: String,
 ) -> Result<()> {
-    println!("Stopping fortress: {}", name);
+    println!("Stopping eddi messaging server: {}", name);
 
     server_manager.stop_server(&name).await?;
 
-    println!("✓ Fortress stopped");
+    println!("✓ Server stopped");
     Ok(())
 }
 
@@ -480,11 +480,11 @@ async fn handle_disconnect(
 
 async fn handle_revoke_client(
     state_manager: Arc<StateManager>,
-    fortress: String,
+    server_name: String,
     code: String,
 ) -> Result<()> {
     println!("Revoking client access...");
-    println!("  Fortress: {}", fortress);
+    println!("  Server: {}", server_name);
     println!("  Code: {}", code);
 
     // Get client by code

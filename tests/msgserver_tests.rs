@@ -7,22 +7,22 @@ use std::time::Duration;
 use tempfile::tempdir;
 
 #[tokio::test]
-async fn test_fortress_creation() {
+async fn test_server_creation() {
     let dir = tempdir().unwrap();
     let state_manager = Arc::new(StateManager::new(dir.path()).unwrap());
     let server_manager = ServerManager::new(state_manager.clone());
 
-    // Create a fortress (without Tor for testing)
-    let fortress = server_manager
-        .create_fortress("test-fortress".to_string(), 5, false)
+    // Create a server (without Tor for testing)
+    let server = server_manager
+        .create_server("test-server".to_string(), 5, false)
         .await
         .unwrap();
 
-    assert_eq!(fortress.config().name, "test-fortress");
-    assert_eq!(fortress.config().ttl_minutes, 5);
+    assert_eq!(server.config().name, "test-server");
+    assert_eq!(server.config().ttl_minutes, 5);
 
-    // Stop fortress
-    server_manager.stop_server("test-fortress").await.unwrap();
+    // Stop server
+    server_manager.stop_server("test-server").await.unwrap();
 }
 
 #[tokio::test]
@@ -31,22 +31,22 @@ async fn test_broker_creation() {
     let state_manager = Arc::new(StateManager::new(dir.path()).unwrap());
     let server_manager = ServerManager::new(state_manager.clone());
 
-    // First create a fortress (without Tor for testing)
-    let _fortress = server_manager
-        .create_fortress("test-fortress".to_string(), 5, false)
+    // First create a server (without Tor for testing)
+    let _server = server_manager
+        .create_server("test-server".to_string(), 5, false)
         .await
         .unwrap();
 
     // Create a broker
     let broker = server_manager
-        .create_broker("test-fortress".to_string(), Duration::from_secs(60))
+        .create_broker("test-server".to_string(), Duration::from_secs(60))
         .await
         .unwrap();
 
     assert!(broker.config().name.starts_with("broker-"));
 
     // Cleanup
-    server_manager.stop_server("test-fortress").await.unwrap();
+    server_manager.stop_server("test-server").await.unwrap();
 }
 
 #[tokio::test]
@@ -167,14 +167,14 @@ async fn test_server_manager_multi_instance() {
     let state_manager = Arc::new(StateManager::new(dir.path()).unwrap());
     let server_manager = ServerManager::new(state_manager.clone());
 
-    // Create multiple fortresses (without Tor for testing)
+    // Create multiple servers (without Tor for testing)
     server_manager
-        .create_fortress("fortress1".to_string(), 5, false)
+        .create_server("server1".to_string(), 5, false)
         .await
         .unwrap();
 
     server_manager
-        .create_fortress("fortress2".to_string(), 10, false)
+        .create_server("server2".to_string(), 10, false)
         .await
         .unwrap();
 
@@ -183,8 +183,8 @@ async fn test_server_manager_multi_instance() {
     assert_eq!(servers.len(), 2);
 
     // Stop all servers
-    server_manager.stop_server("fortress1").await.unwrap();
-    server_manager.stop_server("fortress2").await.unwrap();
+    server_manager.stop_server("server1").await.unwrap();
+    server_manager.stop_server("server2").await.unwrap();
 
     let servers = server_manager.list_servers().await;
     assert_eq!(servers.len(), 0);
@@ -194,10 +194,10 @@ async fn test_server_manager_multi_instance() {
 fn test_cli_parsing() {
     use cli::*;
 
-    // Test create-fortress command
+    // Test create-server command
     let args = vec![
         "msgsrv",
-        "create-fortress",
+        "create-server",
         "--name",
         "test",
         "--ttl",
@@ -209,7 +209,7 @@ fn test_cli_parsing() {
 
     if let Ok(cli) = cli {
         match cli.command {
-            MsgSrvCommand::CreateFortress { name, ttl, .. } => {
+            MsgSrvCommand::CreateServer { name, ttl, .. } => {
                 assert_eq!(name, "test");
                 assert_eq!(ttl, 10);
             }

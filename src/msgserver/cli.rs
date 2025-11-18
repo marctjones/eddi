@@ -15,9 +15,9 @@ pub struct MsgSrvCli {
 /// Message server subcommands
 #[derive(Debug, Subcommand)]
 pub enum MsgSrvCommand {
-    /// Create a new fortress (persistent message server)
-    CreateFortress {
-        /// Fortress name
+    /// Create a new eddi messaging server (persistent emsgsrv)
+    CreateServer {
+        /// Server name
         #[arg(short, long)]
         name: String,
 
@@ -36,9 +36,9 @@ pub enum MsgSrvCommand {
 
     /// Create a broker (ephemeral handshake server)
     CreateBroker {
-        /// Fortress to connect to
+        /// Eddi messaging server to connect to
         #[arg(short, long)]
-        fortress: String,
+        server: String,
 
         /// Namespace for broker discovery (e.g., email@example.com)
         #[arg(short, long)]
@@ -53,7 +53,7 @@ pub enum MsgSrvCommand {
         local_only: bool,
     },
 
-    /// Connect to a fortress via broker
+    /// Connect to an eddi messaging server via broker
     Connect {
         /// Short code for broker discovery (e.g., ABC-XYZ)
         #[arg(short, long)]
@@ -112,8 +112,8 @@ pub enum MsgSrvCommand {
         background: bool,
     },
 
-    /// List all fortresses
-    ListFortresses {
+    /// List all eddi messaging servers
+    ListServers {
         /// Show detailed information
         #[arg(short, long)]
         verbose: bool,
@@ -122,11 +122,11 @@ pub enum MsgSrvCommand {
     /// List active brokers
     ListBrokers,
 
-    /// List clients for a fortress
+    /// List clients for an eddi messaging server
     ListClients {
-        /// Fortress name
+        /// Server name
         #[arg(short, long)]
-        fortress: String,
+        server: String,
     },
 
     /// List connections
@@ -142,19 +142,19 @@ pub enum MsgSrvCommand {
         name: Option<String>,
     },
 
-    /// Stop a fortress
-    StopFortress {
-        /// Fortress name
+    /// Stop an eddi messaging server
+    StopServer {
+        /// Server name
         name: String,
     },
 
     /// Stop a broker
     StopBroker {
-        /// Broker ID or fortress name
+        /// Broker ID or server name
         id: String,
     },
 
-    /// Disconnect from a fortress
+    /// Disconnect from a server
     Disconnect {
         /// Connection name or alias
         name: String,
@@ -162,9 +162,9 @@ pub enum MsgSrvCommand {
 
     /// Revoke client access
     RevokeClient {
-        /// Fortress name
+        /// Server name
         #[arg(short, long)]
-        fortress: String,
+        server: String,
 
         /// Client code or token
         #[arg(short, long)]
@@ -198,10 +198,10 @@ mod tests {
 
     #[test]
     fn test_cli_parsing() {
-        // Test create-fortress command (default Tor mode)
+        // Test create-server command (default Tor mode)
         let args = vec![
             "msgsrv",
-            "create-fortress",
+            "create-server",
             "--name",
             "my-server",
             "--ttl",
@@ -211,10 +211,10 @@ mod tests {
         let cli = MsgSrvCli::try_parse_from(args);
         assert!(cli.is_ok());
 
-        // Test create-fortress with local-only flag
+        // Test create-server with local-only flag
         let args_local = vec![
             "msgsrv",
-            "create-fortress",
+            "create-server",
             "--name",
             "my-server",
             "--ttl",
