@@ -186,6 +186,30 @@ cargo test --test msgserver_tests
 
 ## 🔐 Security Model
 
+### Current Implementation: Unix Domain Sockets
+
+**Q: Do messages go over Tor when sent from the same machine?**
+
+**A: Not yet - but local Unix sockets are already secure!**
+
+**Current Architecture:**
+- Messages use **Unix Domain Sockets** (`/tmp/eddi-msgsrv-*.sock`)
+- These are kernel-level IPC, **not** network sockets
+- Never touch the network stack
+- Isolated at OS level (requires socket file permissions)
+- **Secure for local/same-machine communication**
+
+**Coming Soon: Tor Integration**
+- Fortress will get a `.onion` address
+- Remote clients will connect via Tor
+- All traffic encrypted and anonymized
+- See `docs/TOR_INTEGRATION.md` for roadmap
+
+**When to use what:**
+- **Unix Sockets** (current): Fast, secure local communication
+- **Tor** (coming soon): Secure remote access, anonymity, censorship resistance
+- **Hybrid** (planned): Both options available
+
 ### Introduction Pattern
 
 1. **Admin creates Fortress** → Gets persistent address
