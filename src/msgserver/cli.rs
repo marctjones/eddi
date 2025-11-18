@@ -25,9 +25,9 @@ pub enum MsgSrvCommand {
         #[arg(short, long, default_value = "5")]
         ttl: u64,
 
-        /// Enable Tor hidden service
+        /// Disable Tor and use local Unix sockets only (advanced option)
         #[arg(long)]
-        onion: bool,
+        local_only: bool,
 
         /// Enable stealth mode (Tor client authorization)
         #[arg(long)]
@@ -48,9 +48,9 @@ pub enum MsgSrvCommand {
         #[arg(short, long, default_value = "120")]
         timeout: u64,
 
-        /// Enable Tor hidden service
+        /// Disable Tor and use local Unix sockets only (advanced option)
         #[arg(long)]
-        onion: bool,
+        local_only: bool,
     },
 
     /// Connect to a fortress via broker
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_cli_parsing() {
-        // Test create-fortress command
+        // Test create-fortress command (default Tor mode)
         let args = vec![
             "msgsrv",
             "create-fortress",
@@ -206,11 +206,24 @@ mod tests {
             "my-server",
             "--ttl",
             "10",
-            "--onion",
         ];
 
         let cli = MsgSrvCli::try_parse_from(args);
         assert!(cli.is_ok());
+
+        // Test create-fortress with local-only flag
+        let args_local = vec![
+            "msgsrv",
+            "create-fortress",
+            "--name",
+            "my-server",
+            "--ttl",
+            "10",
+            "--local-only",
+        ];
+
+        let cli_local = MsgSrvCli::try_parse_from(args_local);
+        assert!(cli_local.is_ok());
     }
 
     #[test]

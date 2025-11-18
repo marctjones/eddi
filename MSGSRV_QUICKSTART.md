@@ -186,40 +186,42 @@ cargo test --test msgserver_tests
 
 ## 🔐 Security Model
 
-### Tor Integration Now Available! 🧅
+### Tor-First Architecture 🧅
 
-**Q: Do messages go over Tor when sent from the same machine?**
+**Q: Do messages go over Tor by default?**
 
-**A: You can choose! Use `--onion` flag for hybrid mode (Unix + Tor).**
+**A: YES! Tor is enabled by default for secure, anonymous messaging.**
 
 **Two Modes Available:**
 
-1. **Local Mode (Default - Unix Sockets Only)**
+1. **Tor Mode (Default - Recommended) 🧅**
    ```bash
    eddi-msgsrv create-fortress --name my-server --ttl 5
    ```
+   - **Tor enabled by default** - no flags needed!
+   - Gets a persistent `.onion` address
+   - Accessible via Tor network for remote, anonymous access
+   - Also includes Unix socket for fast local access (hybrid mode)
+   - All Tor traffic encrypted and anonymized
+   - Takes 30-60 seconds to bootstrap Tor on first run
+   - **Recommended for production use**
+
+2. **Local-Only Mode (Advanced Option - Development)**
+   ```bash
+   eddi-msgsrv create-fortress --name my-server --ttl 5 --local-only
+   ```
+   - **Disables Tor** - Unix sockets only
    - Uses **Unix Domain Sockets** (`/tmp/eddi-msgsrv-*.sock`)
    - Kernel-level IPC, **not** network sockets
    - Never touches the network stack
-   - Isolated at OS level (requires socket file permissions)
-   - **Fast and secure for local/same-machine communication**
-   - No Tor overhead
-
-2. **Hybrid Mode (Unix + Tor)**
-   ```bash
-   eddi-msgsrv create-fortress --name my-server --ttl 5 --onion
-   ```
-   - Listens on **both** Unix socket AND Tor onion service
-   - Gets a persistent `.onion` address
-   - Local clients use Unix socket (fast)
-   - Remote clients connect via Tor (secure, anonymous)
-   - All Tor traffic encrypted and anonymized
-   - Takes 30-60 seconds to bootstrap Tor
+   - **Fast for local development/testing**
+   - No Tor bootstrap delay
+   - ⚠️ Not accessible remotely
 
 **When to use what:**
-- **Unix Sockets** (default): Fast, secure local-only communication
-- **Hybrid Mode** (`--onion`): When you need remote access, anonymity, or censorship resistance
-- Best practice: Use hybrid mode to get both fast local access AND secure remote access
+- **Tor Mode** (default): Production use, remote access, anonymity, censorship resistance
+- **Local-Only** (`--local-only`): Fast local development, testing, debugging
+- Best practice: Use default Tor mode unless you have a specific reason not to
 
 ### Introduction Pattern
 
@@ -242,20 +244,24 @@ cargo test --test msgserver_tests
 ## 🌐 Network Topology
 
 ```
-Local Mode (Unix Sockets - Default):
-  Fortress ← UDS → Client (local)
-  Broker ← UDS → Client (local)
-
-Hybrid Mode (--onion flag) ✅:
+Tor Mode (Default) ✅:
   Fortress ← UDS → Client (local, fast)
            ↓
            Tor → Client (remote, secure)
 
-  Both listeners active simultaneously!
+  Both listeners active simultaneously (hybrid mode)!
+
+Local-Only Mode (--local-only flag):
+  Fortress ← UDS → Client (local only)
+  Broker ← UDS → Client (local only)
+
+  No Tor, fast development mode
 
 Future (Broker Tor + Client Connector):
   Fortress ← UDS/Tor → Client
   Broker ← Tor → Client (ephemeral .onion)
+
+  Full end-to-end Tor integration
 ```
 
 ## 🐛 Troubleshooting
@@ -352,13 +358,22 @@ See [docs/MESSAGE_SERVER.md](docs/MESSAGE_SERVER.md) for comprehensive documenta
 
 ## 💡 Example Workflows
 
-### Scenario 0: Remote Access via Tor 🧅
+### Scenario 0: Remote Access via Tor 🧅 (Default)
 
 ```bash
-# Create fortress with Tor enabled (hybrid mode)
-eddi-msgsrv create-fortress --name remote-server --ttl 10 --onion
+# Create fortress with Tor enabled (default - no flags needed!)
+eddi-msgsrv create-fortress --name remote-server --ttl 10
 
-# Output includes onion address:
+# Output:
+# 🧅 Tor mode enabled (default) - fortress will be accessible via .onion address
+# ⏳ This may take 30-60 seconds (bootstrapping Tor)...
+# 💡 Use --local-only to disable Tor for fast local development
+#
+# ✓ Fortress 'remote-server' created
+#   Socket: /tmp/eddi-msgsrv-remote-server.sock
+#   Message TTL: 10 minutes
+#   Status: Running
+#
 # 🧅 Onion Address: abc123def456ghijklmno789.onion
 #   (Accessible via Tor network)
 
@@ -366,7 +381,7 @@ eddi-msgsrv create-fortress --name remote-server --ttl 10 --onion
 eddi-msgsrv send "Hello local!" --server remote-server
 
 # Remote clients will connect via Tor (when Phase 2.3 is complete)
-# eddi-msgsrv connect --onion abc123def456.onion --code H7K-9M3
+# eddi-msgsrv connect --code H7K-9M3 --namespace myteam@example.com
 ```
 
 **Use case:** Secure remote access without exposing IP addresses, perfect for:
@@ -375,10 +390,12 @@ eddi-msgsrv send "Hello local!" --server remote-server
 - Privacy-focused messaging
 - Remote team collaboration
 
+**Note:** Tor is now the default! No need for `--onion` flag.
+
 ### Scenario 1: Team Collaboration
 
 ```bash
-# Team lead creates fortress
+# Team lead creates fortress (Tor enabled by default)
 eddi-msgsrv create-fortress --name team-chat --ttl 10
 
 # For each team member, create broker

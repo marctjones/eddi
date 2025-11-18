@@ -15,11 +15,11 @@ pub async fn execute_command(command: MsgSrvCommand) -> Result<()> {
     let server_manager = ServerManager::new(state_manager.clone());
 
     match command {
-        MsgSrvCommand::CreateFortress { name, ttl, onion, stealth } => {
-            handle_create_fortress(server_manager, name, ttl, onion, stealth).await
+        MsgSrvCommand::CreateFortress { name, ttl, local_only, stealth } => {
+            handle_create_fortress(server_manager, name, ttl, local_only, stealth).await
         }
-        MsgSrvCommand::CreateBroker { fortress, namespace, timeout, onion } => {
-            handle_create_broker(server_manager, state_manager, fortress, namespace, timeout, onion).await
+        MsgSrvCommand::CreateBroker { fortress, namespace, timeout, local_only } => {
+            handle_create_broker(server_manager, state_manager, fortress, namespace, timeout, local_only).await
         }
         MsgSrvCommand::Connect { code, namespace, time_window, alias } => {
             handle_connect(state_manager, code, namespace, time_window, alias).await
@@ -70,18 +70,25 @@ async fn handle_create_fortress(
     server_manager: ServerManager,
     name: String,
     ttl: u64,
-    onion: bool,
+    local_only: bool,
     _stealth: bool,
 ) -> Result<()> {
     println!("Creating fortress: {}", name);
 
-    if onion {
-        println!("🧅 Tor mode enabled - fortress will be accessible via .onion address");
+    let use_tor = !local_only;
+
+    if use_tor {
+        println!("🧅 Tor mode enabled (default) - fortress will be accessible via .onion address");
         println!("⏳ This may take 30-60 seconds (bootstrapping Tor)...");
+        println!("💡 Use --local-only to disable Tor for fast local development");
+        println!();
+    } else {
+        println!("⚠️  Local-only mode - using Unix sockets only (no Tor)");
+        println!("💡 Remove --local-only flag to enable Tor for remote access");
         println!();
     }
 
-    let instance = server_manager.create_fortress(name.clone(), ttl, onion).await?;
+    let instance = server_manager.create_fortress(name.clone(), ttl, use_tor).await?;
 
     println!("✓ Fortress '{}' created", name);
     println!("  Socket: {:?}", instance.config().socket_path);
@@ -109,9 +116,20 @@ async fn handle_create_broker(
     fortress: String,
     namespace: String,
     timeout: u64,
-    _onion: bool,
+    local_only: bool,
 ) -> Result<()> {
     println!("Creating broker for fortress: {}", fortress);
+
+    let use_tor = !local_only;
+
+    if use_tor {
+        println!("🧅 Tor mode enabled (default) - broker will use ephemeral .onion address");
+        println!("⏳ This may take 30-60 seconds (bootstrapping Tor)...");
+        println!();
+    } else {
+        println!("⚠️  Local-only mode - using Unix sockets only (no Tor)");
+        println!();
+    }
 
     // Verify fortress exists
     let fortress_config = state_manager.get_server(&fortress)?

@@ -194,15 +194,13 @@ src/msgserver/
 **Implemented:**
 
 ```bash
-# Create fortress without Tor (local only, fast)
+# Create fortress with Tor (DEFAULT - hybrid mode: local + remote)
 eddi-msgsrv create-fortress --name my-server --ttl 5
 
-# Create fortress with Tor (hybrid mode: local + remote)
-eddi-msgsrv create-fortress --name my-server --ttl 5 --onion
-
-# Output when --onion is used:
-# 🧅 Tor mode enabled - fortress will be accessible via .onion address
+# Output (Tor enabled by default):
+# 🧅 Tor mode enabled (default) - fortress will be accessible via .onion address
 # ⏳ This may take 30-60 seconds (bootstrapping Tor)...
+# 💡 Use --local-only to disable Tor for fast local development
 #
 # ✓ Fortress 'my-server' created
 #   Socket: /tmp/eddi-msgsrv-my-server.sock
@@ -211,13 +209,27 @@ eddi-msgsrv create-fortress --name my-server --ttl 5 --onion
 #
 # 🧅 Onion Address: abc123def456ghijklmno789.onion
 #   (Accessible via Tor network)
+
+# Create fortress without Tor (local only, fast development)
+eddi-msgsrv create-fortress --name my-server --ttl 5 --local-only
+
+# Output (local-only mode):
+# ⚠️  Local-only mode - using Unix sockets only (no Tor)
+# 💡 Remove --local-only flag to enable Tor for remote access
+#
+# ✓ Fortress 'my-server' created
+#   Socket: /tmp/eddi-msgsrv-my-server.sock
+#   Message TTL: 5 minutes
+#   Status: Running
 ```
+
+**Key Change:** Tor is now the **default**! Use `--local-only` to disable Tor, not `--onion` to enable it.
 
 **Planned (Client connector):**
 
 ```bash
 # Connect to fortress via Tor (coming soon)
-eddi-msgsrv connect --onion abc123def456.onion --code XYZ-123
+eddi-msgsrv connect --code XYZ-123 --namespace user@example.com
 ```
 
 ## Testing Plan
