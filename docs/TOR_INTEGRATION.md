@@ -56,26 +56,43 @@ For remote access, all communication will go through Tor hidden services:
 - [x] CLI commands
 - [x] Tests
 
-### Phase 2: Tor Integration 🚧 (In Progress)
+### Phase 2: Tor Integration ✅ (Complete)
 
-#### 2.1 Fortress Onion Services
+#### 2.1 Fortress Onion Services ✅
+
+**Implementation Status:** COMPLETE
+
+Fortresses can now be created with Tor onion services:
 
 ```rust
-// Create fortress with Tor
-let tor_client = TorClient::create_bootstrapped().await?;
-let (onion_service, request_stream) = tor_client
-    .launch_onion_service(config)
-    .await?;
+// Create fortress with Tor enabled
+let instance = ServerManager::create_fortress(
+    "my-fortress".to_string(),
+    5,      // TTL in minutes
+    true    // Enable Tor
+).await?;
 
-// Get .onion address
-let onion_addr = onion_service.onion_address();
-// Example: abc123def456.onion
+// Fortress now has:
+// - Unix socket for local access: /tmp/eddi-msgsrv-my-fortress.sock
+// - Onion address for remote access: abc123...xyz.onion
+// - Both listeners run concurrently in hybrid mode
 ```
 
-#### 2.2 Broker Onion Services (Ephemeral)
+**Features Implemented:**
+- TorManager bootstraps Arti client automatically
+- Onion service creation with persistent addresses
+- Dual listener: Unix socket + Tor onion service
+- Bidirectional proxy between Tor and Unix socket
+- StreamRequest handling with proper Begin message support
+
+#### 2.2 Broker Onion Services (Ephemeral) ⏳
+
+**Status:** PLANNED
+
+Brokers will get ephemeral onion addresses for handshake operations:
 
 ```rust
-// Create ephemeral broker
+// Create ephemeral broker (planned)
 let broker_onion = create_ephemeral_onion_service(
     &tor_client,
     &short_code,
@@ -86,27 +103,39 @@ let broker_onion = create_ephemeral_onion_service(
 // Auto-shuts down after handshake
 ```
 
-#### 2.3 Client Tor Connector
+#### 2.3 Client Tor Connector ⏳
+
+**Status:** PLANNED
+
+Clients will connect to fortresses via Tor:
 
 ```rust
-// Client connects via Tor
-let stream = tor_client
-    .connect((onion_address, 80))
-    .await?;
+// Client connects via Tor (planned)
+let tor = TorManager::new(key_dir).await?;
+let stream = tor.connect_to_onion("abc123...xyz.onion", 80).await?;
 
 // All communication encrypted & anonymous
 ```
 
-#### 2.4 Hybrid Mode
+**Note:** The `connect_to_onion()` method is already implemented in TorManager!
+
+#### 2.4 Hybrid Mode ✅
+
+**Status:** COMPLETE
+
+Fortresses now operate in **hybrid mode by default** when Tor is enabled:
 
 ```rust
-// Fortress listens on BOTH
-enum ListenMode {
-    UnixSocket(PathBuf),      // Fast local access
-    OnionService(String),      // Secure remote access
-    Both(PathBuf, String),     // Hybrid (recommended)
-}
+// Fortress automatically listens on BOTH when use_tor=true
+let fortress = create_fortress("my-fortress", 5, true).await?;
+
+// Hybrid mode provides:
+// - Unix Socket: /tmp/eddi-msgsrv-my-fortress.sock (local, fast)
+// - Onion Service: abc123...xyz.onion (remote, anonymous)
+// - Both active simultaneously
 ```
+
+This gives the best of both worlds: fast local access via Unix sockets and secure remote access via Tor.
 
 ### Phase 3: Advanced Features 🔮 (Planned)
 
@@ -160,17 +189,34 @@ src/msgserver/
 └── ...
 ```
 
-### API Changes
+### API Changes ✅
 
-```rust
-// Before
+**Implemented:**
+
+```bash
+# Create fortress without Tor (local only, fast)
 eddi-msgsrv create-fortress --name my-server --ttl 5
 
-// After (with Tor)
+# Create fortress with Tor (hybrid mode: local + remote)
 eddi-msgsrv create-fortress --name my-server --ttl 5 --onion
-# Output: Onion address: abc123def456.onion
 
-// Connect via Tor
+# Output when --onion is used:
+# 🧅 Tor mode enabled - fortress will be accessible via .onion address
+# ⏳ This may take 30-60 seconds (bootstrapping Tor)...
+#
+# ✓ Fortress 'my-server' created
+#   Socket: /tmp/eddi-msgsrv-my-server.sock
+#   Message TTL: 5 minutes
+#   Status: Running
+#
+# 🧅 Onion Address: abc123def456ghijklmno789.onion
+#   (Accessible via Tor network)
+```
+
+**Planned (Client connector):**
+
+```bash
+# Connect to fortress via Tor (coming soon)
 eddi-msgsrv connect --onion abc123def456.onion --code XYZ-123
 ```
 

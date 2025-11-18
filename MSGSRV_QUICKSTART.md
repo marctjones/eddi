@@ -186,29 +186,40 @@ cargo test --test msgserver_tests
 
 ## 🔐 Security Model
 
-### Current Implementation: Unix Domain Sockets
+### Tor Integration Now Available! 🧅
 
 **Q: Do messages go over Tor when sent from the same machine?**
 
-**A: Not yet - but local Unix sockets are already secure!**
+**A: You can choose! Use `--onion` flag for hybrid mode (Unix + Tor).**
 
-**Current Architecture:**
-- Messages use **Unix Domain Sockets** (`/tmp/eddi-msgsrv-*.sock`)
-- These are kernel-level IPC, **not** network sockets
-- Never touch the network stack
-- Isolated at OS level (requires socket file permissions)
-- **Secure for local/same-machine communication**
+**Two Modes Available:**
 
-**Coming Soon: Tor Integration**
-- Fortress will get a `.onion` address
-- Remote clients will connect via Tor
-- All traffic encrypted and anonymized
-- See `docs/TOR_INTEGRATION.md` for roadmap
+1. **Local Mode (Default - Unix Sockets Only)**
+   ```bash
+   eddi-msgsrv create-fortress --name my-server --ttl 5
+   ```
+   - Uses **Unix Domain Sockets** (`/tmp/eddi-msgsrv-*.sock`)
+   - Kernel-level IPC, **not** network sockets
+   - Never touches the network stack
+   - Isolated at OS level (requires socket file permissions)
+   - **Fast and secure for local/same-machine communication**
+   - No Tor overhead
+
+2. **Hybrid Mode (Unix + Tor)**
+   ```bash
+   eddi-msgsrv create-fortress --name my-server --ttl 5 --onion
+   ```
+   - Listens on **both** Unix socket AND Tor onion service
+   - Gets a persistent `.onion` address
+   - Local clients use Unix socket (fast)
+   - Remote clients connect via Tor (secure, anonymous)
+   - All Tor traffic encrypted and anonymized
+   - Takes 30-60 seconds to bootstrap Tor
 
 **When to use what:**
-- **Unix Sockets** (current): Fast, secure local communication
-- **Tor** (coming soon): Secure remote access, anonymity, censorship resistance
-- **Hybrid** (planned): Both options available
+- **Unix Sockets** (default): Fast, secure local-only communication
+- **Hybrid Mode** (`--onion`): When you need remote access, anonymity, or censorship resistance
+- Best practice: Use hybrid mode to get both fast local access AND secure remote access
 
 ### Introduction Pattern
 
@@ -231,12 +242,19 @@ cargo test --test msgserver_tests
 ## 🌐 Network Topology
 
 ```
-Local Mode (Unix Sockets):
-  Fortress ← UDS → Client
-  Broker ← UDS → Client
+Local Mode (Unix Sockets - Default):
+  Fortress ← UDS → Client (local)
+  Broker ← UDS → Client (local)
 
-Tor Mode (Future):
-  Fortress ← Tor → Client (.onion address)
+Hybrid Mode (--onion flag) ✅:
+  Fortress ← UDS → Client (local, fast)
+           ↓
+           Tor → Client (remote, secure)
+
+  Both listeners active simultaneously!
+
+Future (Broker Tor + Client Connector):
+  Fortress ← UDS/Tor → Client
   Broker ← Tor → Client (ephemeral .onion)
 ```
 
@@ -310,10 +328,12 @@ See [docs/MESSAGE_SERVER.md](docs/MESSAGE_SERVER.md) for comprehensive documenta
 
 ## 🔨 What's Next (Future Enhancements)
 
-⏳ **Tor Integration**
-- Connect fortress to Arti onion service
-- Ephemeral broker onion addresses
-- Client authorization (stealth mode)
+✅ **Tor Integration (Partially Complete)**
+- ✅ Fortress onion services (Phase 2.1)
+- ✅ Hybrid mode (Unix + Tor listeners)
+- ⏳ Ephemeral broker onion addresses (Phase 2.2)
+- ⏳ Client Tor connector (Phase 2.3)
+- ⏳ Client authorization / stealth mode (Phase 3)
 
 ⏳ **Real Message Passing**
 - Unix socket client implementation
@@ -331,6 +351,29 @@ See [docs/MESSAGE_SERVER.md](docs/MESSAGE_SERVER.md) for comprehensive documenta
 - Forward secrecy
 
 ## 💡 Example Workflows
+
+### Scenario 0: Remote Access via Tor 🧅
+
+```bash
+# Create fortress with Tor enabled (hybrid mode)
+eddi-msgsrv create-fortress --name remote-server --ttl 10 --onion
+
+# Output includes onion address:
+# 🧅 Onion Address: abc123def456ghijklmno789.onion
+#   (Accessible via Tor network)
+
+# Local clients connect via Unix socket (fast)
+eddi-msgsrv send "Hello local!" --server remote-server
+
+# Remote clients will connect via Tor (when Phase 2.3 is complete)
+# eddi-msgsrv connect --onion abc123def456.onion --code H7K-9M3
+```
+
+**Use case:** Secure remote access without exposing IP addresses, perfect for:
+- Censorship-resistant communication
+- Anonymous coordination
+- Privacy-focused messaging
+- Remote team collaboration
 
 ### Scenario 1: Team Collaboration
 

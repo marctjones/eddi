@@ -3,6 +3,8 @@
 use crate::msgserver::broker::{BrokerCommand, BrokerHandle, FortressBroker, MessageBroker};
 use crate::msgserver::client::{handle_client_stream, ClientConnection, ClientManager};
 use crate::msgserver::storage::{ServerConfig, ServerStatus, StateManager};
+use crate::msgserver::tor::TorManager;
+use crate::msgserver::cli::MsgSrvCli;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -10,6 +12,10 @@ use std::time::{Duration, SystemTime};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
+use futures::StreamExt;
+use tor_hsservice::StreamRequest;
+use tor_proto::client::stream::IncomingStreamRequest;
+use tor_cell::relaycell::msg::Connected;
 
 /// A running server instance (Fortress or Broker)
 pub struct ServerInstance {
@@ -25,8 +31,25 @@ impl ServerInstance {
         socket_path: PathBuf,
         ttl_minutes: u64,
         state_manager: Arc<StateManager>,
+        use_tor: bool,
     ) -> Result<Self> {
         let server_id = Uuid::new_v4().to_string();
+
+        // Initialize Tor if requested
+        let (onion_address, tor_stream) = if use_tor {
+            tracing::info!("🧅 Initializing Tor for fortress: {}", name);
+
+            let key_dir = MsgSrvCli::state_dir().join("tor-keys");
+            let tor = Arc::new(TorManager::new(key_dir).await?);
+
+            let (addr, stream) = tor.create_onion_service(&name).await?;
+
+            tracing::info!("🧅 Fortress onion address: {}", addr);
+            (Some(addr), Some(stream))
+        } else {
+            tracing::info!("📍 Fortress will use Unix sockets only (local access)");
+            (None, None)
+        };
 
         let config = ServerConfig {
             id: server_id.clone(),
@@ -34,12 +57,17 @@ impl ServerInstance {
             socket_path: socket_path.clone(),
             created_at: SystemTime::now(),
             ttl_minutes,
-            onion_address: None,
+            onion_address: onion_address.clone(),
             status: ServerStatus::Running,
         };
 
         // Save to state
         state_manager.create_server(config.clone())?;
+
+        // Update state with onion address if we have one
+        if let Some(ref addr) = onion_address {
+            state_manager.update_server_onion(&server_id, addr)?;
+        }
 
         // Create broker
         let (broker, handle) = FortressBroker::new(
@@ -59,8 +87,9 @@ impl ServerInstance {
             broker.run().await;
         });
 
-        // Spawn listener task
+        // Spawn Unix socket listener
         let broker_tx = handle.clone();
+        let client_manager_clone = client_manager.clone();
         tokio::spawn(async move {
             if let Err(e) = Self::run_listener(
                 socket_path,
@@ -70,15 +99,95 @@ impl ServerInstance {
             )
             .await
             {
-                tracing::error!("Listener error: {}", e);
+                tracing::error!("Unix socket listener error: {}", e);
             }
         });
+
+        // Spawn Tor onion service listener (if enabled)
+        if let Some(mut stream) = tor_stream {
+            let broker_tx_tor = handle.clone();
+            let socket_path_tor = config.socket_path.clone();
+
+            tokio::spawn(async move {
+                tracing::info!("🧅 Starting onion service listener");
+
+                while let Some(request) = stream.next().await {
+                    let socket_path_clone = socket_path_tor.clone();
+                    let broker_handle_clone = broker_tx_tor.clone();
+                    let client_mgr = client_manager_clone.clone();
+
+                    tokio::spawn(async move {
+                        if let Err(e) = Self::handle_onion_request(
+                            request,
+                            socket_path_clone,
+                            broker_handle_clone,
+                            client_mgr,
+                        ).await {
+                            tracing::error!("Error handling onion request: {}", e);
+                        }
+                    });
+                }
+
+                tracing::info!("🧅 Onion service listener stopped");
+            });
+        }
 
         Ok(Self {
             config,
             broker_handle: handle,
             shutdown_tx,
         })
+    }
+
+    /// Handle an onion service request
+    async fn handle_onion_request(
+        stream_request: StreamRequest,
+        socket_path: PathBuf,
+        _broker_handle: BrokerHandle,
+        _client_manager: Arc<ClientManager>,
+    ) -> Result<()> {
+        // Check the stream request type and accept only Begin requests
+        match stream_request.request() {
+            IncomingStreamRequest::Begin(begin) => {
+                let port = begin.port();
+                tracing::debug!("🧅 Onion connection request on port {}", port);
+
+                // Accept the connection
+                let mut onion_stream = stream_request
+                    .accept(Connected::new_empty())
+                    .await
+                    .context("Failed to accept onion stream")?;
+
+                tracing::debug!("🧅 Accepted onion connection, connecting to local Unix socket");
+
+                // Connect to local Unix socket to communicate with the broker
+                let mut unix_stream = UnixStream::connect(&socket_path)
+                    .await
+                    .context("Failed to connect to Unix socket")?;
+
+                tracing::debug!("✓ Connected to Unix socket, proxying data");
+
+                // Proxy bidirectionally between onion stream and Unix socket
+                match tokio::io::copy_bidirectional(&mut onion_stream, &mut unix_stream).await {
+                    Ok((to_unix, from_unix)) => {
+                        tracing::debug!(
+                            "🧅 Onion connection closed. Transferred: {} bytes to UDS, {} bytes from UDS",
+                            to_unix,
+                            from_unix
+                        );
+                    }
+                    Err(e) => {
+                        tracing::error!("Error proxying onion stream: {}", e);
+                    }
+                }
+
+                Ok(())
+            }
+            _ => {
+                tracing::warn!("🧅 Received non-Begin stream request, ignoring");
+                Ok(())
+            }
+        }
     }
 
     /// Create a new Broker server instance (ephemeral)
@@ -274,6 +383,7 @@ impl ServerManager {
         &self,
         name: String,
         ttl_minutes: u64,
+        use_tor: bool,
     ) -> Result<Arc<ServerInstance>> {
         // Check if server with this name already exists
         if self.state_manager.get_server(&name)?.is_some() {
@@ -287,6 +397,7 @@ impl ServerManager {
             socket_path,
             ttl_minutes,
             self.state_manager.clone(),
+            use_tor,
         )
         .await?;
 
@@ -377,9 +488,9 @@ mod tests {
         let state_manager = Arc::new(StateManager::new(dir.path()).unwrap());
         let manager = ServerManager::new(state_manager);
 
-        // Create fortress
+        // Create fortress (without Tor for testing)
         let fortress = manager
-            .create_fortress("test-fortress".to_string(), 5)
+            .create_fortress("test-fortress".to_string(), 5, false)
             .await
             .unwrap();
 

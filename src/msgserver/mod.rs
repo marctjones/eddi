@@ -12,6 +12,7 @@ pub mod server;
 pub mod handshake;
 pub mod cli;
 pub mod commands;
+pub mod tor;
 
 pub use message::{Message, MessageQueue};
 pub use storage::{StateManager, ServerConfig, ClientConfig};
@@ -21,3 +22,4 @@ pub use server::{ServerInstance, ServerManager};
 pub use handshake::{BrokerHandshake, ClientHandshake, IntroductionData};
 pub use cli::{MsgSrvCli, MsgSrvCommand};
 pub use commands::execute_command;
+pub use tor::TorManager;

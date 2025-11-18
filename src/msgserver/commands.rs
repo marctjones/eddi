@@ -70,17 +70,28 @@ async fn handle_create_fortress(
     server_manager: ServerManager,
     name: String,
     ttl: u64,
-    _onion: bool,
+    onion: bool,
     _stealth: bool,
 ) -> Result<()> {
     println!("Creating fortress: {}", name);
 
-    let instance = server_manager.create_fortress(name.clone(), ttl).await?;
+    if onion {
+        println!("🧅 Tor mode enabled - fortress will be accessible via .onion address");
+        println!("⏳ This may take 30-60 seconds (bootstrapping Tor)...");
+        println!();
+    }
+
+    let instance = server_manager.create_fortress(name.clone(), ttl, onion).await?;
 
     println!("✓ Fortress '{}' created", name);
     println!("  Socket: {:?}", instance.config().socket_path);
     println!("  Message TTL: {} minutes", ttl);
     println!("  Status: Running");
+
+    if let Some(ref onion_addr) = instance.config().onion_address {
+        println!("\n🧅 Onion Address: {}", onion_addr);
+        println!("  (Accessible via Tor network)");
+    }
 
     // Keep the server running
     println!("\nPress Ctrl+C to stop the fortress");

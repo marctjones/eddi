@@ -12,9 +12,9 @@ async fn test_fortress_creation() {
     let state_manager = Arc::new(StateManager::new(dir.path()).unwrap());
     let server_manager = ServerManager::new(state_manager.clone());
 
-    // Create a fortress
+    // Create a fortress (without Tor for testing)
     let fortress = server_manager
-        .create_fortress("test-fortress".to_string(), 5)
+        .create_fortress("test-fortress".to_string(), 5, false)
         .await
         .unwrap();
 
@@ -31,9 +31,9 @@ async fn test_broker_creation() {
     let state_manager = Arc::new(StateManager::new(dir.path()).unwrap());
     let server_manager = ServerManager::new(state_manager.clone());
 
-    // First create a fortress
+    // First create a fortress (without Tor for testing)
     let _fortress = server_manager
-        .create_fortress("test-fortress".to_string(), 5)
+        .create_fortress("test-fortress".to_string(), 5, false)
         .await
         .unwrap();
 
@@ -167,14 +167,14 @@ async fn test_server_manager_multi_instance() {
     let state_manager = Arc::new(StateManager::new(dir.path()).unwrap());
     let server_manager = ServerManager::new(state_manager.clone());
 
-    // Create multiple fortresses
+    // Create multiple fortresses (without Tor for testing)
     server_manager
-        .create_fortress("fortress1".to_string(), 5)
+        .create_fortress("fortress1".to_string(), 5, false)
         .await
         .unwrap();
 
     server_manager
-        .create_fortress("fortress2".to_string(), 10)
+        .create_fortress("fortress2".to_string(), 10, false)
         .await
         .unwrap();
 
