@@ -4,5 +4,6 @@
 //! bound to Unix Domain Sockets and exposing them via Arti onion services.
 
 pub mod process;
+pub mod msgserver;
 
 pub use process::{ChildProcessManager, ProcessConfig};
